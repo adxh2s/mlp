@@ -1,0 +1,48 @@
+orchestrators:
+  pipelines:
+    enabled: true
+    cv:
+      cv_folds: 5
+      scoring: [f1, balanced_accuracy, average_precision]
+    pipelines:
+      - name: linear_pca_svc
+        steps:
+          preprocess: { imputer: simple, scaler: standard }
+          feature_selection: { select_k_best: 100 }
+          reduction:
+            type: pca
+            params: { n_components: [0.8, 0.9, 0.95] }
+          estimator:
+            type: svc
+            params: { kernel: [linear], C: [0.1, 1, 10] }
+      - name: tree_no_reduction
+        steps:
+          preprocess: { imputer: simple }
+          estimator:
+            type: random_forest
+            params: { n_estimators: [200, 500], max_depth: [null, 10, 20] }
+      - name: umap_svc
+        steps:
+          preprocess: { imputer: simple, scaler: standard }
+          feature_selection: { select_percentile: 50 }
+          reduction:
+            type: umap
+            params: { n_components: [10, 20], n_neighbors: [15, 30], min_dist: [0.0, 0.1] }
+          estimator:
+            type: svc
+            params: { kernel: [rbf], C: [1, 10], gamma: [scale] }
+    automl:
+      enabled: true
+      library: tpot
+      # Paramètres TPOT
+      tpot:
+        generations: 5
+        population_size: 50
+        max_time_mins: 5         # budget temps (alternatif à generations/population)
+        scoring: f1
+        cv: 5
+        n_jobs: -1
+        verbosity: 2
+        random_state: 42
+        export_best_pipeline: true
+        export_path: "pipelines/tpot_best_pipeline.py"

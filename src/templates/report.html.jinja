@@ -1,0 +1,38 @@
+{% extends "base.html.jinja" %}
+{% block body %}
+<h1>{{ project_name }} — Rapport</h1>
+
+<h2>EDA</h2>
+<ul>
+  <li>Shape: {{ eda.summary.shape }}</li>
+  <li>Duplicats: {{ eda.summary.duplicates }}</li>
+  <li>Max |corr| off-diagonal: {{ "%.3f"|format(eda.summary.max_abs_corr_offdiag) }}</li>
+  <li>Needs scaling: {{ eda.flags.needs_scaling }}</li>
+  <li>High dimensional (n<<p): {{ eda.flags.high_dimensional }}</li>
+  <li>Class imbalance: {{ eda.flags.class_imbalance }}</li>
+  <li>High collinearity: {{ eda.flags.high_collinearity }}</li>
+  <li>Profil: {{ eda.profile_path }}</li>
+</ul>
+
+<h2>Pipelines</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Nom</th>
+      <th>Score</th>
+      <th>Params</th>
+      <th>Temps (s)</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in results %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td>{{ r.best_score if r.best_score is not none else "" }}</td>
+      <td><code>{{ r.best_params if r.best_params is not none else "" }}</code></td>
+      <td>{{ r.elapsed_sec if r.elapsed_sec is not none else "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

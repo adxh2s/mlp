@@ -1,0 +1,16 @@
+# {{ project_name }} — Rapport
+
+## EDA
+- Shape: {{ eda.summary.shape }}
+- Duplicats: {{ eda.summary.duplicates }}
+- Max |corr| off-diagonal: {{ "%.3f"|format(eda.summary.max_abs_corr_offdiag) }}
+- Needs scaling: {{ eda.flags.needs_scaling }}
+- High dimensional (n<<p): {{ eda.flags.high_dimensional }}
+- Class imbalance: {{ eda.flags.class_imbalance }}
+- High collinearity: {{ eda.flags.high_collinearity }}
+- Profil: {{ eda.profile_path }}
+
+## Pipelines
+{% for r in results -%}
+- {{ r.name }}: best_score={{ r.best_score }}, params={{ r.best_params }}, elapsed={{ r.elapsed_sec }}s
+{% endfor %}

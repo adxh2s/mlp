@@ -1,0 +1,5 @@
+orchestrators:
+  eda:
+    enabled: true
+    profile:
+      minimal: false
