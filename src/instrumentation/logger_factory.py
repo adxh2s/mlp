@@ -1,9 +1,9 @@
+# src/instrumentation/logger_factory.py
 from __future__ import annotations
-
 from ..config.schemas import LoggerSettings
 from .logger_manager import LoggerBaseConfig, LoggerManager
 from .logger_manager_structlog import StructlogLoggerManager
-
+from .config_manager import ConfigManager  # nouvel import
 
 def build_logger_manager(settings: LoggerSettings) -> LoggerManager:
     """Build a logger manager (stdlib or structlog) from settings."""
@@ -20,3 +20,8 @@ def build_logger_manager(settings: LoggerSettings) -> LoggerManager:
     if settings.backend.lower() == "structlog":
         return StructlogLoggerManager(cfg)
     return LoggerManager(cfg)
+
+def build_logger_manager_from_config(cfg_mgr: ConfigManager) -> LoggerManager:
+    """Shortcut: construit LoggerManager à partir de ConfigManager."""
+    ls = cfg_mgr.build_logger_settings()
+    return build_logger_manager(ls)

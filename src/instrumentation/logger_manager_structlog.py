@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import logging.config
 from typing import Optional
+from pathlib import Path
 
 from .logger_manager import LoggerBaseConfig, LoggerManager
 
@@ -28,6 +29,13 @@ class StructlogLoggerManager(LoggerManager):
         try:
             import structlog
 
+        # Garantir l’existence du dossier parent si un fichier de log est prévu
+            if self.cfg.file_path:
+                try:
+                    Path(self.cfg.file_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
+                
             timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
             shared = [
                 structlog.contextvars.merge_contextvars,

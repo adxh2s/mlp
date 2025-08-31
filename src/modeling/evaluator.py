@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Dict, Optional, Tuple
+import logging
+from typing import Any, Dict, Optional
 
 import mlflow
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 
 from .pipeline_factory import PipelineFactory
+from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
 
 
-class PipelineEvaluator:
+class PipelineEvaluator(LoggerMixin):
     """Evaluate pipelines via GridSearchCV or TPOT AutoML, with optional MLflow logging."""
 
     DEFAULT_REFIT = "f1"
@@ -24,6 +26,7 @@ class PipelineEvaluator:
         random_state: int = 42,
         mlflow_enabled: bool = False,
         experiment: str = "mlp-experiments",
+        logger_manager: SupportsGetLogger | None = None,
     ) -> None:
         """Initialize evaluator.
 
@@ -32,12 +35,21 @@ class PipelineEvaluator:
             random_state: Seed for CV/reproducibility.
             mlflow_enabled: Enable MLflow tracking if True.
             experiment: MLflow experiment name.
+            logger_manager: Optional LoggerManager/StructlogLoggerManager to initialize self.log.
         """
         self.out_dir = out_dir
         self.random_state = random_state
         self.mlflow_enabled = mlflow_enabled
         self.experiment = experiment
+
+        # Initialize logger consistently
+        if logger_manager is not None:
+            self._init_logger(logger_manager)  # provides self.log (LoggerMixin)
+        else:
+            self.log = logging.getLogger("mlp.evaluator")
+
         os.makedirs(out_dir, exist_ok=True)
+
         if self.mlflow_enabled:
             uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:8080")
             mlflow.set_tracking_uri(uri)
@@ -79,6 +91,7 @@ class PipelineEvaluator:
         X_tr, X_te, y_tr, y_te = train_test_split(
             X, y, test_size=0.2, random_state=random_state, stratify=y
         )
+
         tpot = TPOTClassifier(
             generations=generations,
             population_size=population_size,
@@ -89,6 +102,7 @@ class PipelineEvaluator:
             verbosity=verbosity,
             random_state=random_state,
         )
+
         start = time.time()
         if self.mlflow_enabled:
             with mlflow.start_run(run_name=f"tpot_{name}"):
@@ -131,6 +145,7 @@ class PipelineEvaluator:
 
     def evaluate(self, X, y, spec: Dict[str, Any], cv_cfg: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate a single pipeline spec and return summary dict."""
+
         # AutoML branch: TPOT
         if spec.get("automl"):
             a = spec["automl"]
@@ -145,14 +160,41 @@ class PipelineEvaluator:
         fac = PipelineFactory(self.random_state)
         pipe, grid = fac.build(spec)
         folds = int(cv_cfg.get("cv_folds", 5))
-        scoring = cv_cfg.get("scoring") or [self.DEFAULT_REFIT]
-        refit = scoring if isinstance(scoring, list) else scoring
+        scoring_cfg = cv_cfg.get("scoring")  # e.g., ["f1"] or "f1" or {"f1": "f1"}
+
+        # Resolve scoring/refit robustly
+        if scoring_cfg is None:
+            scoring = self.DEFAULT_REFIT
+            refit = self.DEFAULT_REFIT
+        elif isinstance(scoring_cfg, str):
+            scoring = scoring_cfg
+            refit = scoring_cfg
+        elif isinstance(scoring_cfg, (list, tuple)):
+            metrics = list(dict.fromkeys(scoring_cfg))
+            self.log.info("metrics(resolu)=%s", metrics)
+            if len(metrics) == 1:
+                metric = next(iter(metrics))  # plus expressif que metrics
+                scoring = metric
+                refit = cv_cfg.get("refit") or metric
+            else:
+                scoring = {m: m for m in metrics}
+                refit = cv_cfg.get("refit") or next(iter(metrics))
+        elif isinstance(scoring_cfg, dict):
+            scoring = scoring_cfg
+            refit = cv_cfg.get("refit") or next(iter(scoring_cfg.keys()))
+        else:
+            raise ValueError(f"Unsupported scoring config: {type(scoring_cfg)}")
+
+        self.log.info(
+            "Resolved scoring=%s refit=%s type=%s", scoring, refit, type(refit).__name__
+        )
+
         cv = StratifiedKFold(n_splits=folds, shuffle=True, random_state=self.random_state)
 
         gridcv = GridSearchCV(
             pipe,
             grid if grid else {},
-            scoring=scoring if isinstance(scoring, str) else {m: m for m in scoring},
+            scoring=scoring,
             refit=refit,
             cv=cv,
             n_jobs=-1,
@@ -163,7 +205,10 @@ class PipelineEvaluator:
         start = time.time()
         gridcv.fit(X, y)
         elapsed = time.time() - start
-        cv_path = os.path.join(self.out_dir, f"{self.FILE_PREFIX}{spec.get('name')}_{int(start)}{self.FILE_EXT}")
+
+        cv_path = os.path.join(
+            self.out_dir, f"{self.FILE_PREFIX}{spec.get('name')}_{int(start)}{self.FILE_EXT}"
+        )
         pd.DataFrame(gridcv.cv_results_).to_csv(cv_path, index=False)
 
         if self.mlflow_enabled:

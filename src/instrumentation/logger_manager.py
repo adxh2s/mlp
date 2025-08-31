@@ -6,6 +6,7 @@ import logging.config
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional
+from pathlib import Path
 
 
 class JsonFormatter(logging.Formatter):
@@ -100,6 +101,13 @@ class LoggerManager:
         root_handlers.append(self.HANDLER_CONSOLE)
 
         if self.cfg.file_path:
+             # S'assurer que le dossier existe
+            try:
+                Path(self.cfg.file_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                # Si le mkdir échoue, on laisse logger.config lancer l'erreur de handler
+                pass
+          
             handlers[self.HANDLER_FILE] = {
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": self.cfg.file_path,

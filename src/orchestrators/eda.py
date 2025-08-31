@@ -38,9 +38,10 @@ class EDAOrchestrator(LoggerMixin):
 
     def run(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> Dict[str, Any]:
         """Execute EDA and return artifacts and summary."""
+        n_rows, n_cols = X.shape
         self.log.info(
             "eda_start",
-            extra={"extra_fields": {"out_dir": self.out_dir, "n_rows": int(X.shape), "n_cols": int(X.shape)}},
+            extra={"extra_fields": {"out_dir": self.out_dir, "n_rows": n_rows, "n_cols": n_cols}},
         )
         df = pd.concat([X, y.rename("target")] if y is not None else [X], axis=1)
         profile_path = EDAProfile.generate_profile(

@@ -1,0 +1,159 @@
+2025-08-31 17:30:36 | INFO | conftest | pytest logging configured
+2025-08-31 17:30:37 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:30:37 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:30:37 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:30:37 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:31:01 | INFO | conftest | pytest logging configured
+2025-08-31 17:31:01 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:31:01 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:31:01 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:31:01 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:31:04 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:31:04 | INFO | mlp.evaluator | Resolved scoring=['f1'] refit=['f1'] type=list
+2025-08-31 17:34:59 | INFO | conftest | pytest logging configured
+2025-08-31 17:34:59 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:34:59 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:34:59 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:34:59 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:35:01 | INFO | conftest | pytest logging configured
+2025-08-31 17:35:01 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:35:01 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:35:01 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:35:01 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:35:04 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:35:04 | INFO | mlp.evaluator | Resolved scoring=['f1'] refit=['f1'] type=list
+2025-08-31 17:37:12 | INFO | conftest | pytest logging configured
+2025-08-31 17:37:13 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:37:13 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:37:13 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:37:13 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:37:24 | INFO | conftest | pytest logging configured
+2025-08-31 17:37:25 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:37:25 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:37:25 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:37:25 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:37:34 | INFO | conftest | pytest logging configured
+2025-08-31 17:37:34 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:37:34 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:37:34 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:37:34 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:37:37 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:37:37 | INFO | mlp.evaluator | Resolved scoring=f1 refit=f1 type=str
+2025-08-31 17:42:53 | INFO | conftest | pytest logging configured
+2025-08-31 17:42:53 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:42:53 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:42:53 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:42:53 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:48:26 | INFO | conftest | pytest logging configured
+2025-08-31 17:48:26 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:48:26 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:48:26 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:48:26 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:48:36 | INFO | conftest | pytest logging configured
+2025-08-31 17:48:36 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:48:36 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:48:36 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:48:36 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:48:39 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:48:39 | INFO | mlp.evaluator | Resolved scoring=f1 refit=f1 type=str
+2025-08-31 17:49:04 | INFO | conftest | pytest logging configured
+2025-08-31 17:49:04 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:49:04 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:49:04 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:49:04 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:49:07 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:49:07 | INFO | mlp.evaluator | Resolved scoring=f1 refit=f1 type=str
+2025-08-31 17:54:12 | INFO | conftest | pytest logging configured
+2025-08-31 17:54:12 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:54:12 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:54:12 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:54:12 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:54:57 | INFO | conftest | pytest logging configured
+2025-08-31 17:54:58 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:54:58 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:54:58 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:54:58 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:55:00 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:55:00 | INFO | mlp.evaluator | Resolved scoring=f1 refit=f1 type=str
+2025-08-31 17:57:58 | INFO | conftest | pytest logging configured
+2025-08-31 17:57:58 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 17:57:58 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 17:57:58 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 17:57:58 | INFO | visions.backends | Python backend loaded
+2025-08-31 17:58:01 | INFO | mlp.evaluator | metrics(resolu)=['f1']
+2025-08-31 17:58:01 | INFO | mlp.evaluator | Resolved scoring=f1 refit=f1 type=str
+2025-08-31 18:00:06 | INFO | conftest | pytest logging configured
+2025-08-31 18:00:06 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:00:06 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:00:06 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:00:06 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:00:25 | INFO | conftest | pytest logging configured
+2025-08-31 18:00:25 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:00:25 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:00:25 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:00:25 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:12:33 | INFO | conftest | pytest logging configured
+2025-08-31 18:12:33 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:12:33 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:12:33 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:12:33 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:15:54 | INFO | conftest | pytest logging configured
+2025-08-31 18:15:54 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:15:54 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:15:54 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:15:54 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:16:15 | INFO | conftest | pytest logging configured
+2025-08-31 18:16:15 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:16:15 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:16:15 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:16:15 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:16:31 | INFO | conftest | pytest logging configured
+2025-08-31 18:16:31 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:16:31 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:16:31 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:16:31 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:21:31 | INFO | conftest | pytest logging configured
+2025-08-31 18:21:31 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:21:31 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:21:31 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:21:31 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:21:41 | INFO | conftest | pytest logging configured
+2025-08-31 18:21:41 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:21:41 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:21:41 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:21:41 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:22:02 | INFO | conftest | pytest logging configured
+2025-08-31 18:22:03 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:22:03 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:22:03 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:22:03 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:22:12 | INFO | conftest | pytest logging configured
+2025-08-31 18:22:12 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:22:12 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:22:12 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:22:12 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:25:26 | INFO | conftest | pytest logging configured
+2025-08-31 18:25:26 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:25:26 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:25:26 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:25:26 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:25:36 | INFO | conftest | pytest logging configured
+2025-08-31 18:25:37 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:25:37 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:25:37 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:25:37 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:30:27 | INFO | conftest | pytest logging configured
+2025-08-31 18:30:27 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:30:27 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:30:27 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:30:27 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:31:44 | INFO | conftest | pytest logging configured
+2025-08-31 18:31:44 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:31:44 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:31:44 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:31:44 | INFO | visions.backends | Python backend loaded
+2025-08-31 18:37:16 | INFO | conftest | pytest logging configured
+2025-08-31 18:37:16 | INFO | visions.backends | Pandas backend loaded 2.3.2
+2025-08-31 18:37:16 | INFO | visions.backends | Numpy backend loaded 2.1.3
+2025-08-31 18:37:16 | INFO | visions.backends | Pyspark backend NOT loaded
+2025-08-31 18:37:16 | INFO | visions.backends | Python backend loaded

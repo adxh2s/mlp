@@ -59,5 +59,6 @@ strict_equality = true
 exclude = "(outputs|.venv|build|dist|.git)/"
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
