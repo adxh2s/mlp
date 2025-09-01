@@ -1,5 +1,6 @@
 orchestrators:
   file:
+    enabled: true
     data_dir: "./data"
     in_dir: "in"
     out_dir: "out"
@@ -8,4 +9,4 @@ orchestrators:
       - ".xlsx"
       - ".json"
     save_input_file: true
-    save_input_file_compression: false
+    save_input_file_compression: true

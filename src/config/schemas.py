@@ -45,10 +45,24 @@ class ReportConfig(BaseModel):
     formats: list[str] = Field(default_factory=lambda: ["html"])
 
 
+# >>> Nouvelle section: File orchestrator <<<
+class FileConfig(BaseModel):
+    """Config section for the file orchestrator."""
+    data_dir: str
+    in_dir: str
+    out_dir: str
+    extensions: list[str] = Field(default_factory=lambda: [".csv", ".xlsx", ".json"])
+    save_input_file: bool = True
+    save_input_file_compression: bool = False
+# <<< Fin section file >>>
+
+
 class OrchestratorsConfig(BaseModel):
     eda: EDAConfig = Field(default_factory=EDAConfig)
     pipelines: PipelinesConfig = Field(default_factory=PipelinesConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
+    # Section file optionnelle pour rétrocompatibilité si absente dans certains projets
+    file: FileConfig | None = None
 
 
 class ProjectConfig(BaseModel):
