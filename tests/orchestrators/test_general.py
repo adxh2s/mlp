@@ -17,7 +17,16 @@ def test_general_orchestrator_demo_flow(tmp_outputs):
                     "enabled": True,
                     "cv": {"cv_folds": 2, "scoring": ["f1"]},
                     "pipelines": [
-                        {"name": "svc_small", "steps": {"preprocess": {"imputer": "simple"}, "estimator": {"type": "svc", "params": {"kernel": ["linear"], "C": [0.1]}}}}
+                        {
+                            "name": "svc_small",
+                            "steps": {
+                                "preprocess": {"imputer": "simple"},
+                                "estimator": {
+                                    "type": "svc",
+                                    "params": {"kernel": ["linear"], "C": [0.1]},
+                                },
+                            },
+                        }
                     ],
                 },
                 "report": {"enabled": True, "formats": ["md"]},

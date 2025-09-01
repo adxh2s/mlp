@@ -10,7 +10,7 @@ from omegaconf import OmegaConf
 
 from src.instrumentation.config_manager import ConfigManager
 from src.orchestrators.general import GeneralOrchestrator
-from streamlit_pages.utils_runs import append_run, load_runs_index, new_run_id
+from streamlit_pages.utils_runs import append_run, new_run_id
 
 APP_TITLE = "EDA"
 EDA_DIR = "eda"
@@ -54,7 +54,10 @@ def _run_eda(outputs_dir: str, project_name: str) -> str:
     go = GeneralOrchestrator(cfg_mgr)
     out = go.run(X, y)
     root = Path(outputs_dir) / project_name
-    append_run(root, {"run_id": run_id, "when": run_id, "artifacts": out.get("report", {}).get("artifacts", [])})
+    append_run(
+        root,
+        {"run_id": run_id, "when": run_id, "artifacts": out.get("report", {}).get("artifacts", [])},
+    )
     return run_id
 
 

@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import sys
 import os
 from pathlib import Path
 from typing import Any, Dict
 
 try:
-    import yaml  # pip install pyyaml
+    import yaml # pip install pyyaml
 except ImportError:
     print("Please install PyYAML: pip install pyyaml")
     sys.exit(1)
 
 STRUCTURE_FILE = "project_structure.yaml"
 
-# Defaults (octal)
-DIR_MODE_DEFAULT = 0o755          # rwxr-xr-x
-FILE_MODE_DEFAULT = 0o644         # rw-r--r--
-FILE_MODE_EXECUTABLE = 0o755      # rwxr-xr-x
+DIR_MODE_DEFAULT = 0o755 # rwxr-xr-x
+FILE_MODE_DEFAULT = 0o644 # rw-r--r--
+FILE_MODE_EXECUTABLE = 0o755 # rwxr-xr-x
 
 EXECUTABLE_EXTS = {".py", ".sh"}
 TEXT_EXTS = {".yaml", ".yml", ".md", ".txt", ".json", ".csv", ".ini", ".cfg"}
-
 
 def log(msg: str):
     print(f"[create_project] {msg}")
@@ -29,13 +28,15 @@ def log(msg: str):
 def norm_mode(value: Any) -> int:
     """
     Normalize YAML permission value to proper octal int for os.chmod.
+
+    text
     Accepts:
-      - int like 755 or 644
-      - str like "755", "0644", "0o755"
+    - int like 755 or 644
+    - str like "755", "0644", "0o755"
+
     Returns int with correct octal bits (e.g., 0o755).
     """
     if isinstance(value, int):
-        # Interpret as decimal digits representing octal -> build 0oXYZ
         s = str(value)
     elif isinstance(value, str):
         s = value.strip().lower()
@@ -45,15 +46,12 @@ def norm_mode(value: Any) -> int:
                 return m
             except Exception:
                 pass
-        # remove leading zeros
         s = s.lstrip("0") or "0"
     else:
         raise ValueError(f"Invalid mode type: {type(value)} ({value})")
 
-    # Now s is like "755" or "644"
     if not s.isdigit():
         raise ValueError(f"Invalid mode digits: {value}")
-    # Build octal by each digit
     acc = 0
     for ch in s:
         d = ord(ch) - ord('0')
@@ -67,44 +65,42 @@ def make_dir(path: Path, mode: int):
     try:
         path.mkdir(parents=True, exist_ok=True)
         os.chmod(path, mode)
-        log(f"DIR OK  {path} mode={oct(mode)}")
+        log(f"DIR OK {path} mode={oct(mode)}")
     except Exception as e:
         log(f"DIR ERR {path} -> {e}")
-
 
 def make_file(path: Path, mode: int):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            path.touch()
+            path.touch(exist_ok=True)
             log(f"FILE NEW {path}")
         else:
             log(f"FILE EXIST {path}")
-        os.chmod(path, mode)
-        log(f"FILE MODE {path} -> {oct(mode)}")
+            os.chmod(path, mode)
+            log(f"FILE MODE {path} -> {oct(mode)}")
     except Exception as e:
         log(f"FILE ERR {path} -> {e}")
-
 
 def is_file_name(name: str) -> bool:
     has_dot = "." in name
     log(f"is_file_name? name='{name}' -> {has_dot}")
     return has_dot
 
-
 def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
     perms = struct.get("permissions", {}) or {}
     file_map_raw = (perms.get("files") or {})
     dir_map_raw = (perms.get("dirs") or {})
 
-    def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
-        out: Dict[str, int] = {}
-        for k, v in d.items():
-            try:
-                out[k] = norm_mode(v)
-            except Exception as e:
-                log(f"PERM WARN invalid mode for pattern '{k}': {v} ({e}) -> skipped")
-        return out
+
+def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
+    out: Dict[str, int] = {}
+    for k, v in d.items():
+        try:
+            out[k] = norm_mode(v)
+        except Exception as e:
+            log(f"PERM WARN invalid mode for pattern '{k}': {v} ({e}) -> skipped")
+    return out
 
     file_map = norm_map(file_map_raw)
     dir_map = norm_map(dir_map_raw)
@@ -114,40 +110,46 @@ def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, in
 
 def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
     for pattern, mode in overrides.items():
-        if path.match(pattern):
-            log(f"DIR MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
-            return mode
+    
+    if path.match(pattern):
+        log(f"DIR MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
+        return mode
+    
     log(f"DIR MODE default for {path} -> {oct(DIR_MODE_DEFAULT)}")
     return DIR_MODE_DEFAULT
-
 
 def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
     for pattern, mode in overrides.items():
         if path.match(pattern):
             log(f"FILE MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
             return mode
-    ext = path.suffix.lower()
-    if ext in EXECUTABLE_EXTS:
-        log(f"FILE MODE executable by extension: {path} -> {oct(FILE_MODE_EXECUTABLE)}")
-        return FILE_MODE_EXECUTABLE
-    if ext in TEXT_EXTS:
-        log(f"FILE MODE text default: {path} -> {oct(FILE_MODE_DEFAULT)}")
-        return FILE_MODE_DEFAULT
-    log(f"FILE MODE fallback default: {path} -> {oct(FILE_MODE_DEFAULT)}")
+        ext = path.suffix.lower()
+        if ext in EXECUTABLE_EXTS:
+            log(f"FILE MODE executable by extension: {path} -> {oct(FILE_MODE_EXECUTABLE)}")
+            return FILE_MODE_EXECUTABLE
+        if ext in TEXT_EXTS:
+            log(f"FILE MODE text default: {path} -> {oct(FILE_MODE_DEFAULT)}")
+            return FILE_MODE_DEFAULT
+        log(f"FILE MODE fallback default: {path} -> {oct(FILE_MODE_DEFAULT)}")
     return FILE_MODE_DEFAULT
 
 
-def ensure_children(base: Path,
-                    children: Dict[str, Any],
-                    created: Dict[str, list],
-                    file_perm_over: Dict[str, int],
-                    dir_perm_over: Dict[str, int]) -> None:
+def ensure_children(
+    base: Path,
+    children: Dict[str, Any],
+    created: Dict[str, list],
+    file_perm_over: Dict[str, int],
+    dir_perm_over: Dict[str, int],
+    ) -> None:
     if not isinstance(children, dict):
         log(f"CHILDREN WARN at {base}: expected dict, got {type(children)}")
-        return
+    return
+
+
     for name, node in children.items():
         log(f"CHILD PROC base={base} name={name} node_type={type(node)} node={node if isinstance(node, (str, int, float)) else '[complex]'}")
         target = base / name
+
         if is_file_name(name):
             mode = pick_mode_for_file(target, file_perm_over)
             make_file(target, mode)
@@ -155,11 +157,13 @@ def ensure_children(base: Path,
         else:
             make_dir(target, pick_mode_for_dir(target, dir_perm_over))
             created["dirs"].append(str(target))
+
             if isinstance(node, dict):
                 nested = node.get("children")
                 if isinstance(nested, dict):
                     ensure_children(target, nested, created, file_perm_over, dir_perm_over)
-                else:
+            else:
+                if isinstance(node, dict):
                     for sub_name, sub_node in node.items():
                         if sub_name == "children":
                             continue
@@ -178,6 +182,7 @@ def ensure_children(base: Path,
 
 
 def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list]:
+
     created = {"dirs": [], "files": []}
     project = struct.get("project", {})
     log(f"ROOT project keys: {list(project.keys())}")
@@ -195,6 +200,7 @@ def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list
             log(f"TOP DIR {dir_path} meta_type={type(meta)}")
             make_dir(dir_path, pick_mode_for_dir(dir_path, dir_perm_over))
             created["dirs"].append(str(dir_path))
+
             if isinstance(meta, dict):
                 for maybe_name, maybe_node in meta.items():
                     if maybe_name == "children":
@@ -204,6 +210,7 @@ def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list
                         mode = pick_mode_for_file(fpath, file_perm_over)
                         make_file(fpath, mode)
                         created["files"].append(str(fpath))
+
                 children = meta.get("children")
                 if isinstance(children, dict):
                     ensure_children(dir_path, children, created, file_perm_over, dir_perm_over)
@@ -254,12 +261,11 @@ def main():
     if created["dirs"]:
         print("Directories:")
         for d in created["dirs"]:
-            print(f"  - {d}")
+            print(f" - {d}")
     if created["files"]:
         print("Files:")
         for f in created["files"]:
-            print(f"  - {f}")
+            print(f" - {f}")
 
-
-if __name__ == "__main__":
+if name == "main":
     main()

@@ -5,8 +5,8 @@ from typing import Any, Dict
 
 from ..config.schemas import AppConfig, ReportConfig
 from ..datavisualization.report_renderer import ReportRenderer
-from ..instrumentation.logger_mixin import LoggerMixin
 from ..instrumentation.logger_manager import LoggerManager  # interface type
+from ..instrumentation.logger_mixin import LoggerMixin
 
 
 class ReportOrchestrator(LoggerMixin):
@@ -16,7 +16,9 @@ class ReportOrchestrator(LoggerMixin):
     TEMPLATES_DIR = "src/templates"
     LOGGER_NAME = "mlp.orchestrators.report"
 
-    def __init__(self, cfg: ReportConfig, project_dir: str, app_cfg: AppConfig, lm: LoggerManager) -> None:
+    def __init__(
+        self, cfg: ReportConfig, project_dir: str, app_cfg: AppConfig, lm: LoggerManager
+    ) -> None:
         """Initialize report orchestrator.
 
         Args:

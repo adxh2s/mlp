@@ -49,7 +49,10 @@ def _run_pipelines(outputs_dir: str, project_name: str) -> str:
     go = GeneralOrchestrator(cfg_mgr)
     out = go.run(X, y)
     root = Path(outputs_dir) / project_name
-    append_run(root, {"run_id": run_id, "when": run_id, "artifacts": out.get("report", {}).get("artifacts", [])})
+    append_run(
+        root,
+        {"run_id": run_id, "when": run_id, "artifacts": out.get("report", {}).get("artifacts", [])},
+    )
     return run_id
 
 
@@ -75,7 +78,12 @@ def run() -> None:
                 selected = pipes_root / sel
                 df = load_csv(selected)
                 st.dataframe(df, use_container_width=True)
-                st.download_button("Télécharger CSV", data=df.to_csv(index=False), file_name=selected.name, mime="text/csv")
+                st.download_button(
+                    "Télécharger CSV",
+                    data=df.to_csv(index=False),
+                    file_name=selected.name,
+                    mime="text/csv",
+                )
 
     with colB:
         st.subheader("Lancer un run Pipelines")

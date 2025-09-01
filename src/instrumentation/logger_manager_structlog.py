@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 import logging.config
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 from .logger_manager import LoggerBaseConfig, LoggerManager
 
@@ -29,24 +29,32 @@ class StructlogLoggerManager(LoggerManager):
         try:
             import structlog
 
-        # Garantir l’existence du dossier parent si un fichier de log est prévu
+            # Garantir l’existence du dossier parent si un fichier de log est prévu
             if self.cfg.file_path:
                 try:
-                    Path(self.cfg.file_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+                    Path(self.cfg.file_path).expanduser().resolve().parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
                 except Exception:
                     pass
-                
+
             timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
             shared = [
                 structlog.contextvars.merge_contextvars,
                 structlog.processors.add_log_level,
                 timestamper,
             ]
-            renderer = structlog.processors.JSONRenderer() if self.cfg.json_mode else structlog.dev.ConsoleRenderer()
+            renderer = (
+                structlog.processors.JSONRenderer()
+                if self.cfg.json_mode
+                else structlog.dev.ConsoleRenderer()
+            )
 
             structlog.configure(
                 processors=shared + [structlog.processors.format_exc_info, renderer],
-                wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, self.cfg.level)),
+                wrapper_class=structlog.make_filtering_bound_logger(
+                    getattr(logging, self.cfg.level)
+                ),
                 context_class=dict,
                 logger_factory=structlog.stdlib.LoggerFactory(),
                 cache_logger_on_first_use=True,

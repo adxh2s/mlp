@@ -1,23 +1,29 @@
 from __future__ import annotations
 
+# Standard library
 import logging
 import os
 from typing import Any, Dict, Optional
 
+# Third-party
 import pandas as pd
 
+# Local
 from ..config.schemas import AppConfig
 from ..instrumentation.config_manager import ConfigManager
 from ..instrumentation.logger_factory import build_logger_manager
 from ..instrumentation.logger_mixin import LoggerMixin
 from .eda import EDAOrchestrator
+from .file import FileOrchestrator  # ajout
 from .pipelines import PipelineOrchestrator
 from .report import ReportOrchestrator
 
 
 class GeneralOrchestrator(LoggerMixin):
-    """Coordinate EDA, pipeline evaluation, and report rendering."""
+    """Coordinate file intake, EDA, pipeline evaluation, and report rendering."""
 
+    # Class constants
+    KEY_FILE = "file"
     KEY_EDA = "eda"
     KEY_PIPELINES = "pipelines"
     KEY_REPORT = "report"
@@ -38,7 +44,6 @@ class GeneralOrchestrator(LoggerMixin):
             self.lm = logger_manager
         else:
             self.lm = build_logger_manager(self.cfg.logger)
-            # configure only if not already configured
             self.lm.configure()
 
         # Initialize self.log uniformly
@@ -50,25 +55,38 @@ class GeneralOrchestrator(LoggerMixin):
         self.log.info("general_init", extra={"extra_fields": {"project_dir": self.project_dir}})
 
     def run(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> Dict[str, Any]:
-        """Run EDA → Pipelines → Report and return outputs."""
+        """Run File → EDA → Pipelines → Report and return outputs."""
         out: Dict[str, Any] = {}
         orchestrators = self.cfg.orchestrators
         self.log.info("general_start")
 
+        # 0) File orchestrator (si présent dans la conf)
+        if hasattr(orchestrators, "file"):
+            try:
+                fo = FileOrchestrator(orchestrators.file, logger_manager=self.lm)
+                out[self.KEY_FILE] = fo.process_input()
+            except Exception as exc:
+                self.log.warning(
+                    "file_orchestrator_failed", extra={"extra_fields": {"error": str(exc)}}
+                )
+
+        # 1) EDA
         if orchestrators.eda.enabled:
             eda = EDAOrchestrator(orchestrators.eda, self.project_dir, self.lm)
             out[self.KEY_EDA] = eda.run(X, y)
 
+        # 2) Pipelines
         if orchestrators.pipelines.enabled and y is not None:
             pipes = PipelineOrchestrator(
                 orchestrators.pipelines,
                 project_dir=self.project_dir,
                 random_state=self.cfg.project.random_state,
-                out_dir=self.out_dir,
                 logger_manager=self.lm,
+                out_dir=self.out_dir,  # support optionnel si ajouté côté PipelineOrchestrator
             )
             out[self.KEY_PIPELINES] = pipes.run(X, y)
 
+        # 3) Report
         if orchestrators.report.enabled:
             rep = ReportOrchestrator(orchestrators.report, self.project_dir, self.cfg, self.lm)
             out[self.KEY_REPORT] = rep.run(
@@ -77,8 +95,6 @@ class GeneralOrchestrator(LoggerMixin):
 
         self.log.info(
             "general_done",
-            extra={
-                "extra_fields": {"report_artifacts": out.get(self.KEY_REPORT, {}).get("artifacts")}
-            },
+            extra={"extra_fields": {"report_artifacts": out.get(self.KEY_REPORT, {}).get("artifacts")}},
         )
         return out

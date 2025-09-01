@@ -1,0 +1,11 @@
+orchestrators:
+  file:
+    data_dir: "./data"
+    in_dir: "in"
+    out_dir: "out"
+    extensions:
+      - ".csv"
+      - ".xlsx"
+      - ".json"
+    save_input_file: true
+    save_input_file_compression: false

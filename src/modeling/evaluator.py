@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
-import logging
 from typing import Any, Dict, Optional
 
 import mlflow
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 
-from .pipeline_factory import PipelineFactory
 from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
+
+from .pipeline_factory import PipelineFactory
 
 
 class PipelineEvaluator(LoggerMixin):
@@ -185,9 +186,7 @@ class PipelineEvaluator(LoggerMixin):
         else:
             raise ValueError(f"Unsupported scoring config: {type(scoring_cfg)}")
 
-        self.log.info(
-            "Resolved scoring=%s refit=%s type=%s", scoring, refit, type(refit).__name__
-        )
+        self.log.info("Resolved scoring=%s refit=%s type=%s", scoring, refit, type(refit).__name__)
 
         cv = StratifiedKFold(n_splits=folds, shuffle=True, random_state=self.random_state)
 

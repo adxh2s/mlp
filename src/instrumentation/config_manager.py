@@ -1,15 +1,18 @@
 # src/instrumentation/config_manager.py
 from __future__ import annotations
-from typing import Any, Dict, Optional
+
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ValidationError
 
 from ..config.schemas import AppConfig, LoggerSettings
 
+
 class ConfigManager:
     """Load and validate OmegaConf (Hydra) config into Pydantic models."""
+
     ERR_INVALID_CFG = "Configuration invalid"
     KEY_PROJECT = "project"
     KEY_ORCHESTRATORS = "orchestrators"
@@ -70,11 +73,7 @@ class ConfigManager:
         # Si file_path absent → on pointe sur <racine>/logs/app.log
         file_path = logger_raw.get("file_path") or self.make_logs_file_path("app.log")
         # App name: project.name si dispo
-        app_name = (
-            logger_raw.get("app_name")
-            or (raw.get("project", {}) or {}).get("name")
-            or "mlp"
-        )
+        app_name = logger_raw.get("app_name") or (raw.get("project", {}) or {}).get("name") or "mlp"
         return LoggerSettings(
             backend=logger_raw.get("backend", "stdlib"),
             app_name=app_name,

@@ -24,4 +24,6 @@ def load_runs_index(project_root: Path) -> List[Dict]:
 def append_run(project_root: Path, run: Dict) -> None:
     arr = load_runs_index(project_root)
     arr.append(run)
-    index_path(project_root).write_text(json.dumps(arr, indent=2, ensure_ascii=False), encoding="utf-8")
+    index_path(project_root).write_text(
+        json.dumps(arr, indent=2, ensure_ascii=False), encoding="utf-8"
+    )

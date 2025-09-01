@@ -1,9 +1,11 @@
 # src/instrumentation/bootstrap_logging.py
 from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+
 from ..config_manager import ConfigManager
 from ..logger_factory import build_logger_manager
+
 
 def init_logging_from_config(cfg_mgr: ConfigManager):
     """
@@ -23,10 +25,12 @@ def init_logging_from_config(cfg_mgr: ConfigManager):
     # Log de démarrage
     logger.info(
         "Logging initialized",
-        extra={"extra_fields": {
-            "file_path": logger_settings.file_path,
-            "level": logger_settings.level,
-            "backend": logger_settings.backend,
-        }},
+        extra={
+            "extra_fields": {
+                "file_path": logger_settings.file_path,
+                "level": logger_settings.level,
+                "backend": logger_settings.backend,
+            }
+        },
     )
     return lm, logger

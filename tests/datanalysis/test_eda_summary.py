@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pandas as pd
-
 from src.datanalysis.eda_summary import EDASummary
 
 

@@ -45,7 +45,9 @@ def run() -> None:
     st.write(f"Fichier: {f}")
     if f.suffix.lower() == ".md":
         content = f.read_text(encoding="utf-8")
-        st.download_button("Télécharger Markdown", data=content, file_name=f.name, mime="text/markdown")
+        st.download_button(
+            "Télécharger Markdown", data=content, file_name=f.name, mime="text/markdown"
+        )
         st.markdown(content)
     elif f.suffix.lower() == ".html":
         html = f.read_text(encoding="utf-8")

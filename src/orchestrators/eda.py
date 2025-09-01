@@ -8,8 +8,8 @@ import pandas as pd
 from ..config.schemas import EDAConfig
 from ..datanalysis.eda_profile import EDAProfile
 from ..datanalysis.eda_summary import EDASummary
-from ..instrumentation.logger_mixin import LoggerMixin
 from ..instrumentation.logger_manager import LoggerManager  # interface type
+from ..instrumentation.logger_mixin import LoggerMixin
 
 
 class EDAOrchestrator(LoggerMixin):

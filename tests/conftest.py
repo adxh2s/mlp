@@ -1,28 +1,38 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from typing import Dict, Tuple
-
 import logging
-from omegaconf import OmegaConf
-from src.instrumentation.config_manager import ConfigManager
-from src.instrumentation.logger_factory import build_logger_manager
+from pathlib import Path
+from typing import Tuple
 
 import pandas as pd
 import pytest
+from omegaconf import OmegaConf
+
+from src.instrumentation.config_manager import ConfigManager
+from src.instrumentation.logger_factory import build_logger_manager
 
 
 def pytest_configure(config):
     # Config minimale compatible avec AppConfig
     raw = {
-        "project": {"name": "tests", "random_state": 42, "output_dir": str(Path("tmp_pytest_outputs").resolve())},
+        "project": {
+            "name": "tests",
+            "random_state": 42,
+            "output_dir": str(Path("tmp_pytest_outputs").resolve()),
+        },
         "orchestrators": {
             "eda": {"enabled": False},
-            "pipelines": {"enabled": False, "cv": {"cv_folds": 2, "scoring": ["f1"]}, "pipelines": []},
+            "pipelines": {
+                "enabled": False,
+                "cv": {"cv_folds": 2, "scoring": ["f1"]},
+                "pipelines": [],
+            },
             "report": {"enabled": False, "formats": ["md"]},
         },
-        "logger": {"backend": "stdlib", "level": "INFO"},  # file_path sera injecté par ConfigManager
+        "logger": {
+            "backend": "stdlib",
+            "level": "INFO",
+        },  # file_path sera injecté par ConfigManager
     }
     cfg = OmegaConf.create(raw)
     cfg_mgr = ConfigManager(cfg)
@@ -38,9 +48,10 @@ def pytest_configure(config):
     lm.configure()
 
     # Log d’amorçage
-    import logging
-    logging.getLogger(__name__).info("pytest logging configured", extra={"extra_fields": {"log_file": ls.file_path}})
 
+    logging.getLogger(__name__).info(
+        "pytest logging configured", extra={"extra_fields": {"log_file": ls.file_path}}
+    )
 
 
 @pytest.fixture(scope="session")
@@ -62,7 +73,7 @@ def demo_dataset() -> Tuple[pd.DataFrame, pd.Series]:
             "x3": [0, 1] * 5,
         }
     )
-    vals = [0, 1] * 5 
+    vals = [0, 1] * 5
     y = pd.Series(vals, name="target")
     return X, y
 
@@ -72,7 +83,12 @@ def jinja_templates_dir(tmp_path: Path) -> Path:
     """Create a small Jinja templates dir for renderer tests."""
     base = tmp_path / "templates"
     base.mkdir(parents=True, exist_ok=True)
-    (base / "base.html.jinja").write_text("<html><body>{% block body %}{% endblock %}</body></html>", encoding="utf-8")
-    (base / "report.html.jinja").write_text("{% extends 'base.html.jinja' %}{% block body %}<h1>{{ project_name }}</h1>{% endblock %}", encoding="utf-8")
+    (base / "base.html.jinja").write_text(
+        "<html><body>{% block body %}{% endblock %}</body></html>", encoding="utf-8"
+    )
+    (base / "report.html.jinja").write_text(
+        "{% extends 'base.html.jinja' %}{% block body %}<h1>{{ project_name }}</h1>{% endblock %}",
+        encoding="utf-8",
+    )
     (base / "report.md.jinja").write_text("# {{ project_name }}", encoding="utf-8")
     return base

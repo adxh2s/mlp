@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -59,10 +58,8 @@ def main() -> None:
     st.session_state["project_name"] = params["project_name"]
 
     # Import programmatic pages (each exposes run())
-    import streamlit_pages.home as home
-    import streamlit_pages.eda as eda
     import streamlit_pages.pipelines as pipes
-    import streamlit_pages.reports as reports
+    from streamlit_pages import eda, home, reports
 
     # Define pages programmatically
     pg_home = st.Page(home.run, title="Accueil", icon="🏠")

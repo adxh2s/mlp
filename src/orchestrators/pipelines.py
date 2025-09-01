@@ -1,13 +1,14 @@
 from __future__ import annotations
-import os
+
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 from ..config.schemas import PipelinesConfig
-from ..instrumentation.logger_mixin import LoggerMixin
 from ..instrumentation.logger_manager import LoggerManager  # interface type
+from ..instrumentation.logger_mixin import LoggerMixin
 from ..modeling.evaluator import PipelineEvaluator
 
 
@@ -70,11 +71,15 @@ class PipelineOrchestrator(LoggerMixin):
         results: List[Dict[str, Any]] = []
         for spec in self.cfg.pipelines:
             sdict = spec.model_dump() if hasattr(spec, "model_dump") else spec
-            self.log.info("pipeline_eval_start", extra={"extra_fields": {"name": sdict.get("name")}})
+            self.log.info(
+                "pipeline_eval_start", extra={"extra_fields": {"name": sdict.get("name")}}
+            )
             res = evaluator.evaluate(X, y, sdict, self.cfg.cv)
             self.log.info(
                 "pipeline_eval_done",
-                extra={"extra_fields": {"name": res.get("name"), "best_score": res.get("best_score")}},
+                extra={
+                    "extra_fields": {"name": res.get("name"), "best_score": res.get("best_score")}
+                },
             )
             results.append(res)
 

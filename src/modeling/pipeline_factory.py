@@ -152,7 +152,9 @@ class PipelineFactory:
             except Exception:
                 raise RuntimeError(self.ERR_AUTOSKLEARN_MISSING)
             model = askl_cls.AutoSklearnClassifier(
-                time_left_for_this_task=automl_cfg.get(self.AKL_TIME_LEFT, self.AKL_DEFAULT_TIME_LEFT),
+                time_left_for_this_task=automl_cfg.get(
+                    self.AKL_TIME_LEFT, self.AKL_DEFAULT_TIME_LEFT
+                ),
                 per_run_time_limit=automl_cfg.get(self.AKL_PER_RUN_LIMIT, self.AKL_DEFAULT_PER_RUN),
                 seed=self.random_state,
             )
@@ -198,7 +200,9 @@ class PipelineFactory:
         steps_cfg = spec.get("steps") or {}
         preprocess = self._preprocess(steps_cfg.get(self.STEP_PREPROCESS) or {})
         selector = SelectorsFactory.make_selector(steps_cfg.get("feature_selection"))
-        reducer = ReducersFactory.make_reducer(steps_cfg.get(self.STEP_REDUCTION), self.random_state)
+        reducer = ReducersFactory.make_reducer(
+            steps_cfg.get(self.STEP_REDUCTION), self.random_state
+        )
         estimator = self._estimator(steps_cfg.get(self.STEP_ESTIMATOR) or {})
 
         steps_list: list[tuple[str, Any]] = []

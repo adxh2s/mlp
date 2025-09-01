@@ -16,7 +16,16 @@ def test_integration_end_to_end(tmp_outputs):
                     "enabled": True,
                     "cv": {"cv_folds": 2, "scoring": ["f1"]},
                     "pipelines": [
-                        {"name": "rf_small", "steps": {"preprocess": {"imputer": "simple"}, "estimator": {"type": "random_forest", "params": {"n_estimators": 5}}}},
+                        {
+                            "name": "rf_small",
+                            "steps": {
+                                "preprocess": {"imputer": "simple"},
+                                "estimator": {
+                                    "type": "random_forest",
+                                    "params": {"n_estimators": 5},
+                                },
+                            },
+                        },
                     ],
                 },
                 "report": {"enabled": True, "formats": ["md"]},

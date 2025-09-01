@@ -1,48 +1,48 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 class ReductionConfig(BaseModel):
-    type: Optional[str] = None
-    params: Optional[Dict[str, Any]] = None
+    type: str | None = None
+    params: dict[str, Any] | None = None
 
 
 class EstimatorConfig(BaseModel):
     type: str
-    params: Optional[Dict[str, Any]] = None
+    params: dict[str, Any] | None = None
 
 
 class StepsConfig(BaseModel):
-    preprocess: Optional[Dict[str, Any]] = None
-    feature_selection: Optional[Dict[str, Any]] = None
-    reduction: Optional[ReductionConfig] = None
-    sampler: Optional[Dict[str, Any]] = None
-    estimator: Optional[EstimatorConfig] = None
+    preprocess: dict[str, Any] | None = None
+    feature_selection: dict[str, Any] | None = None
+    reduction: ReductionConfig | None = None
+    sampler: dict[str, Any] | None = None
+    estimator: EstimatorConfig | None = None
 
 
 class PipelineSpec(BaseModel):
     name: str
-    steps: Optional[StepsConfig] = None
-    automl: Optional[Dict[str, Any]] = None
+    steps: StepsConfig | None = None
+    automl: dict[str, Any] | None = None
 
 
 class PipelinesConfig(BaseModel):
     enabled: bool = True
-    cv: Dict[str, Any] = Field(default_factory=dict)
-    pipelines: List[PipelineSpec] = Field(default_factory=list)
+    cv: dict[str, Any] = Field(default_factory=dict)
+    pipelines: list[PipelineSpec] = Field(default_factory=list)
 
 
 class EDAConfig(BaseModel):
     enabled: bool = True
-    profile: Dict[str, Any] = Field(default_factory=dict)
+    profile: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReportConfig(BaseModel):
     enabled: bool = True
-    formats: List[str] = Field(default_factory=lambda: ["html"])
+    formats: list[str] = Field(default_factory=lambda: ["html"])
 
 
 class OrchestratorsConfig(BaseModel):
@@ -62,11 +62,11 @@ class LoggerSettings(BaseModel):
     app_name: str = Field(default="mlp")
     level: str = Field(default="INFO")
     json_mode: bool = Field(default=False)
-    file_path: Optional[str] = None
+    file_path: str | None = None
     file_max_bytes: int = Field(default=5 * 1024 * 1024)
     file_backup_count: int = Field(default=3)
     uvicorn_noise_filter: bool = Field(default=True)
-    default_fields: Dict[str, Any] = Field(default_factory=dict)
+    default_fields: dict[str, Any] = Field(default_factory=dict)
 
 
 class AppConfig(BaseModel):
