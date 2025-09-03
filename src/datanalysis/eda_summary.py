@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -22,8 +22,8 @@ class EDASummary:
 
     @staticmethod
     def summarize(
-        X: pd.DataFrame, y: Optional[pd.Series], out_dir: str
-    ) -> Tuple[str, Dict[str, Any], Dict[str, bool]]:
+        X: pd.DataFrame, y: pd.Series | None, out_dir: str
+    ) -> tuple[str, dict[str, Any], dict[str, bool]]:
         os.makedirs(out_dir, exist_ok=True)
         n, p = X.shape
         na_counts = X.isna().sum().sort_values(ascending=False)

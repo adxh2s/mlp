@@ -1,0 +1,10 @@
+orchestrators:
+  data:
+    enabled: true
+    target_column: null  # null = auto-detection
+    auto_detect_target: true
+    drop_columns: []
+    missing_strategy: "auto"  # auto, drop, fill
+    categorical_threshold: 0.1
+    min_samples_threshold: 10
+    outlier_detection: false

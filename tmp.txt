@@ -1,0 +1,14 @@
+Voici tous les fichiers de l'application, peux tu modifier les fichiers concernés par ta proposition avec le DataManager() et le reste, je prends note pour la partie micro-services que je ferai plus tard. Dans l'esprit de cette application et pour justmeent prévoir la partie micro-services futures, ne faudrait il pas egalement un DataOrchestrator pour gérer toute la partie de gestion de données en délaguant au DataManager le cas échéant ? 
+
+
+Regrouper les types de tir pour n'avoir que queqlues variables / onehot ou autre.(frequency / target )
+Voir la signification de toutes les varaiabbles de romain
+
+selection de variables - RFE / 
+
+encodage / rajout de variables --> apres une fois la premiere partie stabilisée
+
+moyenne sur les premiers matchs pour pas avoir de vide dans les premieres lignes.
+
+Moneyball
+

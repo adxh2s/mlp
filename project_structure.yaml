@@ -3,7 +3,7 @@ project:
   name: mlp
   description: >
   mlp: EDA → Pipelines → Rapports (Hydra/Pydantic/Jinja), Streamlit multipages (routage programmatique),
-  avec instrumentation centralisée (configuration + logging via LoggerManager/StructlogLoggerManager et LoggerMixin).
+    avec instrumentation centralisée (configuration + logging via LoggerManager/StructlogLoggerManager et LoggerMixin).
   directories:
   conf:
   description: Configurations Hydra composables en YAML.

@@ -2,7 +2,8 @@
 setlocal enabledelayedexpansion
 
 REM Racine = dossier du script (chemin absolu normalisé)
-set "ROOT_DIR=%~dp0" & for %%A in ("%ROOT_DIR:~0,-1%") do set "ROOT_DIR=%%~fA"
+set "ROOT_DIR=%~dp0"
+if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 set "INCLUDE_DIR=src"
 
 REM Timestamp (approx: YYYYMMDD_HHMM)

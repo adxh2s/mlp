@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import sys
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
 try:
-    import yaml # pip install pyyaml
+    import yaml  # pip install pyyaml
 except ImportError:
     print("Please install PyYAML: pip install pyyaml")
     sys.exit(1)
 
 STRUCTURE_FILE = "project_structure.yaml"
 
-DIR_MODE_DEFAULT = 0o755 # rwxr-xr-x
-FILE_MODE_DEFAULT = 0o644 # rw-r--r--
-FILE_MODE_EXECUTABLE = 0o755 # rwxr-xr-x
+DIR_MODE_DEFAULT = 0o755  # rwxr-xr-x
+FILE_MODE_DEFAULT = 0o644  # rw-r--r--
+FILE_MODE_EXECUTABLE = 0o755  # rwxr-xr-x
 
 EXECUTABLE_EXTS = {".py", ".sh"}
 TEXT_EXTS = {".yaml", ".yml", ".md", ".txt", ".json", ".csv", ".ini", ".cfg"}
+
 
 def log(msg: str):
     print(f"[create_project] {msg}")
@@ -54,7 +55,7 @@ def norm_mode(value: Any) -> int:
         raise ValueError(f"Invalid mode digits: {value}")
     acc = 0
     for ch in s:
-        d = ord(ch) - ord('0')
+        d = ord(ch) - ord("0")
         if d < 0 or d > 7:
             raise ValueError(f"Invalid octal digit in mode: {value}")
         acc = (acc << 3) | d
@@ -69,6 +70,7 @@ def make_dir(path: Path, mode: int):
     except Exception as e:
         log(f"DIR ERR {path} -> {e}")
 
+
 def make_file(path: Path, mode: int):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,15 +84,17 @@ def make_file(path: Path, mode: int):
     except Exception as e:
         log(f"FILE ERR {path} -> {e}")
 
+
 def is_file_name(name: str) -> bool:
     has_dot = "." in name
     log(f"is_file_name? name='{name}' -> {has_dot}")
     return has_dot
 
+
 def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
     perms = struct.get("permissions", {}) or {}
-    file_map_raw = (perms.get("files") or {})
-    dir_map_raw = (perms.get("dirs") or {})
+    file_map_raw = perms.get("files") or {}
+    dir_map_raw = perms.get("dirs") or {}
 
 
 def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
@@ -100,23 +104,25 @@ def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
             out[k] = norm_mode(v)
         except Exception as e:
             log(f"PERM WARN invalid mode for pattern '{k}': {v} ({e}) -> skipped")
-    return out
+            return out
 
     file_map = norm_map(file_map_raw)
     dir_map = norm_map(dir_map_raw)
-    log(f"PERMISSIONS overrides loaded (octal): files={ {k: oct(v) for k,v in file_map.items()} }, dirs={ {k: oct(v) for k,v in dir_map.items()} }")
+    log(
+        f"PERMISSIONS overrides loaded (octal): files={ {k: oct(v) for k, v in file_map.items()} }, dirs={ {k: oct(v) for k, v in dir_map.items()} }"
+    )
     return {"files": file_map, "dirs": dir_map}
 
 
 def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
     for pattern, mode in overrides.items():
-    
-    if path.match(pattern):
-        log(f"DIR MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
-        return mode
-    
+        if path.match(pattern):
+            log(f"DIR MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
+            return mode
+
     log(f"DIR MODE default for {path} -> {oct(DIR_MODE_DEFAULT)}")
     return DIR_MODE_DEFAULT
+
 
 def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
     for pattern, mode in overrides.items():
@@ -140,14 +146,15 @@ def ensure_children(
     created: Dict[str, list],
     file_perm_over: Dict[str, int],
     dir_perm_over: Dict[str, int],
-    ) -> None:
+) -> None:
     if not isinstance(children, dict):
         log(f"CHILDREN WARN at {base}: expected dict, got {type(children)}")
-    return
-
+        return
 
     for name, node in children.items():
-        log(f"CHILD PROC base={base} name={name} node_type={type(node)} node={node if isinstance(node, (str, int, float)) else '[complex]'}")
+        log(
+            f"CHILD PROC base={base} name={name} node_type={type(node)} node={node if isinstance(node, (str, int, float)) else '[complex]'}"
+        )
         target = base / name
 
         if is_file_name(name):
@@ -162,28 +169,32 @@ def ensure_children(
                 nested = node.get("children")
                 if isinstance(nested, dict):
                     ensure_children(target, nested, created, file_perm_over, dir_perm_over)
-            else:
-                if isinstance(node, dict):
-                    for sub_name, sub_node in node.items():
-                        if sub_name == "children":
-                            continue
-                        sub_target = target / sub_name
-                        log(f"DIR MIXED base={target} sub_name={sub_name} sub_type={type(sub_node)}")
-                        if is_file_name(sub_name):
-                            mode = pick_mode_for_file(sub_target, file_perm_over)
-                            make_file(sub_target, mode)
-                            created["files"].append(str(sub_target))
-                        elif isinstance(sub_node, dict):
-                            make_dir(sub_target, pick_mode_for_dir(sub_target, dir_perm_over))
-                            created["dirs"].append(str(sub_target))
-                            maybe_children = sub_node.get("children")
-                            if isinstance(maybe_children, dict):
-                                ensure_children(sub_target, maybe_children, created, file_perm_over, dir_perm_over)
+            elif isinstance(node, dict):
+                for sub_name, sub_node in node.items():
+                    if sub_name == "children":
+                        continue
+                    sub_target = target / sub_name
+                    log(f"DIR MIXED base={target} sub_name={sub_name} sub_type={type(sub_node)}")
+                    if is_file_name(sub_name):
+                        mode = pick_mode_for_file(sub_target, file_perm_over)
+                        make_file(sub_target, mode)
+                        created["files"].append(str(sub_target))
+                    elif isinstance(sub_node, dict):
+                        make_dir(sub_target, pick_mode_for_dir(sub_target, dir_perm_over))
+                        created["dirs"].append(str(sub_target))
+                        maybe_children = sub_node.get("children")
+                        if isinstance(maybe_children, dict):
+                            ensure_children(
+                                sub_target,
+                                maybe_children,
+                                created,
+                                file_perm_over,
+                                dir_perm_over,
+                            )
 
 
-def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list]:
-
-    created = {"dirs": [], "files": []}
+def process_root_structure(struct: dict[str, Any], root: Path) -> dict[str, list]:
+    created: dict[str, list] = {"dirs": [], "files": []}
     project = struct.get("project", {})
     log(f"ROOT project keys: {list(project.keys())}")
 
@@ -249,7 +260,9 @@ def main():
 
     if not isinstance(struct, dict) or "project" not in struct:
         print("Invalid structure file: missing top-level 'project' mapping.")
-        log(f"STRUCT root type: {type(struct)}, keys: {list(struct.keys()) if isinstance(struct, dict) else None}")
+        log(
+            f"STRUCT root type: {type(struct)}, keys: {list(struct.keys()) if isinstance(struct, dict) else None}"
+        )
         sys.exit(1)
 
     log(f"STRUCT loaded. Top-level keys: {list(struct.keys())}")
@@ -266,6 +279,7 @@ def main():
         print("Files:")
         for f in created["files"]:
             print(f" - {f}")
+
 
 if name == "main":
     main()

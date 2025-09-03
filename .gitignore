@@ -1,5 +1,8 @@
 # fichiers compilés Python
 *.pyc
+*.zip
+*.tar 
+*.lock
 
 # Directories temporary to ignore
 /tmp/
@@ -12,3 +15,15 @@
 # Ignore log files
 /logs/
 *.log
+
+/.*/
+
+# Context files - optionnel
+session-context.md
+
+# Métadonnées de packaging
+*.egg-info/
+build/
+dist/
+__pycache__/
+.tox/

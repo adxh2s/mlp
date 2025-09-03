@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 import jinja2
 
@@ -34,9 +34,9 @@ class ReportRenderer:
     def _build_context(
         self,
         project_name: str,
-        eda_payload: Dict[str, Any],
-        pipe_payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        eda_payload: dict[str, Any],
+        pipe_payload: dict[str, Any],
+    ) -> dict[str, Any]:
         """Build a normalized context dict consumed by templates.
 
         Args:
@@ -65,10 +65,10 @@ class ReportRenderer:
         self,
         out_dir: str,
         project_name: str,
-        formats: List[str],
-        eda_payload: Dict[str, Any],
-        pipe_payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        formats: list[str],
+        eda_payload: dict[str, Any],
+        pipe_payload: dict[str, Any],
+    ) -> dict[str, Any]:
         """Render reports in the requested formats and return artifact paths.
 
         Args:
@@ -84,7 +84,7 @@ class ReportRenderer:
         os.makedirs(out_dir, exist_ok=True)
         report_id = str(uuid.uuid4())[:8]
         ctx = self._build_context(project_name, eda_payload, pipe_payload)
-        artifacts: List[str] = []
+        artifacts: list[str] = []
 
         if "html" in formats:
             template = self.env.get_template("report.html.jinja")

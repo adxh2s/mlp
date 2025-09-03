@@ -1,13 +1,14 @@
 README.md
 pyproject.toml
-src/conftest.py
 src/config/schemas.py
 src/datanalysis/eda_profile.py
 src/datanalysis/eda_summary.py
 src/datavisualization/report_renderer.py
 src/evaluation/metrics.py
 src/evaluation/splitting.py
+src/instrumentation/bootstrap_logging.py
 src/instrumentation/config_manager.py
+src/instrumentation/file_manager.py
 src/instrumentation/logger_factory.py
 src/instrumentation/logger_manager.py
 src/instrumentation/logger_manager_structlog.py
@@ -21,9 +22,11 @@ src/modeling/evaluator.py
 src/modeling/pipeline_factory.py
 src/orchestrators/base.py
 src/orchestrators/eda.py
+src/orchestrators/file.py
 src/orchestrators/general.py
 src/orchestrators/pipelines.py
 src/orchestrators/report.py
 src/preprocessing/reducers.py
 src/preprocessing/samplers.py
 src/preprocessing/selectors.py
+tests/test_create_project_from_yaml.py
