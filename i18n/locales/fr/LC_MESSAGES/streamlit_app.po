@@ -1,0 +1,44 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+# Titres et labels UI
+msgid "app_title"
+msgstr "mlp — Console (Routage programmatique)"
+
+msgid "sidebar_section"
+msgstr "Paramètres"
+
+msgid "outputs_dir_label"
+msgstr "Dossier de sortie"
+
+msgid "project_label"
+msgstr "Projet"
+
+msgid "root_prefix"
+msgstr "Racine artefacts : "
+
+# Pages
+msgid "page_home"
+msgstr "Accueil"
+
+msgid "page_eda"
+msgstr "EDA + YData"
+
+msgid "page_pipelines"
+msgstr "Pipelines"
+
+msgid "page_reports"
+msgstr "Rapports"
+
+# Messages d'UI
+msgid "error_load_pages"
+msgstr "Erreur lors du chargement des pages : {error}"
+
+msgid "config_missing"
+msgstr "Configuration absente : {path}"
+
+msgid "config_read_error"
+msgstr "Erreur de lecture configuration : {error}"

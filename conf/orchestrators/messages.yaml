@@ -1,0 +1,19 @@
+# Orchestrateur de messages: i18n + émission d’événements localisés
+enabled: true
+
+# langue par défaut
+locale: fr
+
+# répertoire racine des fichiers de traduction (.po/.mo)
+locales_dir: i18n/locales
+
+# domaines (un par orchestrateur / service)
+domains:
+  - general
+  - config
+  - file
+  - data
+  - eda
+  - pipelines
+  - report
+  - streamlit-app

@@ -1,0 +1,47 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "general_init"
+msgstr "Initialisation de l’orchestrateur général"
+
+msgid "general_start_from_files"
+msgstr "Démarrage en mode fichiers"
+
+msgid "general_start_from_data"
+msgstr "Démarrage depuis des données préparées (shape {shape})"
+
+msgid "general_done"
+msgstr "Orchestration terminée"
+
+msgid "using_example_data"
+msgstr "Utilisation d’un jeu de données d’exemple"
+
+msgid "no_input_files_found"
+msgstr "Aucun fichier d’entrée trouvé"
+
+msgid "file_orchestrator_disabled_but_required"
+msgstr "L’orchestrateur de fichiers est désactivé mais requis"
+
+msgid "file_orchestrator_failed"
+msgstr "Échec de l’orchestrateur de fichiers: {error}"
+
+msgid "data_orchestrator_failed"
+msgstr "Échec de l’orchestrateur de données: {error}"
+
+msgid "data_orchestrator_disabled_but_raw_data_not_dataframe"
+msgstr "Orchestrateur de données désactivé et données brutes non-DataFrame"
+
+msgid "eda_orchestrator_failed"
+msgstr "Échec de l’orchestrateur EDA: {error}"
+
+msgid "pipelines_orchestrator_failed"
+msgstr "Échec de l’orchestrateur Pipelines: {error}"
+
+msgid "report_orchestrator_failed"
+msgstr "Échec de l’orchestrateur Report: {error}"
+
+msgid "messages_ready"
+msgstr "Système de messages initialisé"

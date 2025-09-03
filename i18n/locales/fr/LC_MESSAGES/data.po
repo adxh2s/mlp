@@ -1,0 +1,29 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "data_start"
+msgstr "Démarrage du traitement de données"
+
+msgid "data_done"
+msgstr "Traitement de données terminé"
+
+msgid "data_init"
+msgstr "Initialisation des données"
+
+msgid "data_processing_start"
+msgstr "Traitement de données début"
+
+msgid "data_analysis_complete"
+msgstr "Analyse de données terminé"
+
+msgid "data_processing_complete"
+msgstr "Traitement de données terminé"
+
+msgid "data_analysis_failed"
+msgstr "Analyse de données échouée"
+
+msgid "data_processing_failed"
+msgstr "Traitement de données échoué"

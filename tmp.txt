@@ -12,3 +12,63 @@ moyenne sur les premiers matchs pour pas avoir de vide dans les premieres lignes
 
 Moneyball
 
+# docs/dev-python-standards.md
+# Standards Python MLP (à conserver pour les prochains fils)
+- Typage strict:
+  - Toujours annoter les fonctions et variables publiques.
+  - Utiliser les builtins pour les génériques (list/dict/tuple), pas typing.List/Dict/Tuple.
+  - Pour OmegaConf.to_container, valider puis caster: isinstance(..., dict) + cast(dict[str, Any], obj).
+  - Préférer Protocol pour interfaces (ex: SupportsGetLogger).
+- Docstrings:
+  - Une docstring de module et de classe/fonction (résumé 1 ligne + détails si besoin).
+  - Lignes courtes (≈72–79) pour docstrings; code ≤ 88–100 chars selon formatteur.
+- Imports:
+  - Ordre: stdlib → third-party → local; tri alphabétique.
+  - Utiliser Ruff pour trier: ruff check --select I --fix . puis ruff format . [Ruff I001]
+- Logging:
+  - Utiliser LoggerManager/Structlog manager unique par process, passé aux orchestrateurs.
+  - Événements comme clés stables (event) + msg localisé via MessageOrchestrator.
+  - Champs structurés: event, domain, service, run_id, locale, etc.
+- i18n:
+  - Un domaine gettext par orchestrateur (general, config, file, data, eda, pipelines, report).
+  - .po sous i18n/locales/<lang>/LC_MESSAGES/<domain>.po; compilation via msgfmt en CI.
+- Hydra/Config:
+  - ConfigOrchestrator centralise ConfigManager + LoggerManager; exposé aux autres.
+  - streamlit_app bootstrap: ConfigOrchestrator puis MessageOrchestrator stockés dans st.session_state.
+- Tests:
+  - Tests unitaires par orchestrateur; usage de tmp_path et compilation .po→.mo (skip si msgfmt absent).
+- Qualité:
+  - Ruff strict activé; corriger UP006/UP035 (builtins), I001 (imports), W505 (docstrings trop longues).
+  - Pylance typeCheckingMode: basic/strict dans .vscode/settings.json selon le projet.
+
+# .vscode/settings.json (exemple)
+{
+  "python.analysis.typeCheckingMode": "basic",
+  "ruff.enable": true,
+  "ruff.lint.args": ["--select", "I"],
+  "editor.formatOnSave": true
+}
+
+# pyproject.toml (extrait Ruff)
+[tool.ruff]
+line-length = 88
+extend-select = ["I"]  # isort-compatible import sorting
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "PLC", "PLE", "RUF"]
+ignore = []
+preview = false
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# Commandes utiles
+# - Trier imports + formatter:
+#   ruff check --select I --fix . && ruff format .
+# - Vérifier mypy (optionnel si configuré):
+#   mypy src tests
+
+

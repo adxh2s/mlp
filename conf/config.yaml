@@ -1,10 +1,14 @@
 defaults:
+  - orchestrators/config
+  - orchestrators/data
   - orchestrators/eda
+  - orchestrators/file
+  - orchestrators/messages
   - orchestrators/pipelines
   - orchestrators/report
-
+  
 project:
-  name: demo_project
+  name: mlp
   random_state: 42
   output_dir: outputs
 

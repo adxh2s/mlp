@@ -1,0 +1,11 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "config_ready"
+msgstr "Configuration chargée (projet: {project_name}, sortie: {output_dir})"
+
+msgid "config_error"
+msgstr "Erreur de configuration: {error}"

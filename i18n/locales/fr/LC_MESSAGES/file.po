@@ -1,0 +1,17 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "file_init"
+msgstr "Initialisation de l’orchestrateur fichiers (in: {in_dir}, out: {out_dir})"
+
+msgid "no_input_file"
+msgstr "Aucun fichier d’entrée trouvé"
+
+msgid "input_found"
+msgstr "Fichier d’entrée trouvé: {file}"
+
+msgid "input_processed"
+msgstr "Fichier traité (copie: {saved}, compression: {compressed})"

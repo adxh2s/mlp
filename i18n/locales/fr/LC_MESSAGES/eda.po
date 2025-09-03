@@ -1,0 +1,11 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mlp 1.0\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "eda_start"
+msgstr "Démarrage EDA"
+
+msgid "eda_done"
+msgstr "EDA terminée"

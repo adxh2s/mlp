@@ -1,0 +1,11 @@
+# Orchestrateur de configuration: active le chargement centralisé de la config
+enabled: true
+
+# Aucune option spécifique requise pour l’instant, l’orchestrateur
+# s’appuie sur ConfigManager (Hydra/OmegaConf + Pydantic) pour fournir
+# un AppConfig validé et un LoggerManager partagé.
+#
+# Champs potentiels à ajouter plus tard:
+# - validate_strict: true
+# - fail_on_extra_keys: true
+# - export_raw_snapshot: true

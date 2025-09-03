@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import pandas as pd
+from pathlib import Path
+
 from omegaconf import OmegaConf
 from sklearn.datasets import load_breast_cancer
 
@@ -8,11 +9,11 @@ from src.instrumentation.config_manager import ConfigManager
 from src.orchestrators.general import GeneralOrchestrator
 
 
-def test_general_orchestrator_with_file(tmp_path):
+def test_general_orchestrator_with_file(tmp_path: Path) -> None:
     # Préparer un petit fichier d'entrée CSV dans data_dir/in_dir
-    data_root = tmp_path
-    in_dir = data_root / "in"
-    out_dir = data_root / "out"
+    data_root: Path = tmp_path
+    in_dir: Path = data_root / "in"
+    out_dir: Path = data_root / "out"
     in_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     (in_dir / "input.csv").write_text("a,b\n1,2\n", encoding="utf-8")
@@ -56,21 +57,32 @@ def test_general_orchestrator_with_file(tmp_path):
 
     # Dataset réduit
     ds = load_breast_cancer(as_frame=True)
-    X = ds.frame.drop(columns=["target"]).head(30)
+    x = ds.frame.drop(columns=["target"]).head(30)
     y = ds.frame["target"].head(30)
 
     go = GeneralOrchestrator(cfg_mgr)
-    out = go.run(X, y)
+    out = go.run(x, y)
 
-    # Vérifications: sections présentes et file intake effectué
-    assert "file" in out
+    # Vérifications avec exceptions explicites (pas d'assert)
+    if "file" not in out:
+        raise AssertionError("'file' section missing in orchestrator output")  # noqa: S101
+
     fsec = out["file"]
-    assert fsec.get("found") is True
-    assert fsec.get("file", "").endswith("input.csv")
-    # saved_copy doit exister dans out_dir (horodaté)
+    if not fsec.get("found"):
+        raise AssertionError("file intake did not mark 'found' as True")  # noqa: S101
+
+    if not fsec.get("file", "").endswith("input.csv"):
+        raise AssertionError("expected 'file' to end with 'input.csv'")  # noqa: S101
+
     saved = fsec.get("saved_copy")
-    assert saved is None or saved.endswith(".csv")  # copié si save_input_file=True
-    assert "eda" in out
-    assert "pipelines" in out
-    assert "report" in out
-    assert isinstance(out["report"].get("artifacts", []), list)
+    if not (saved is None or saved.endswith(".csv")):
+        raise AssertionError("saved_copy should be None or end with .csv")  # noqa: S101
+
+    if "eda" not in out:
+        raise AssertionError("'eda' section missing in orchestrator output")  # noqa: S101
+    if "pipelines" not in out:
+        raise AssertionError("'pipelines' section missing in orchestrator output")  # noqa: S101
+    if "report" not in out:
+        raise AssertionError("'report' section missing in orchestrator output")  # noqa: S101
+    if not isinstance(out["report"].get("artifacts", []), list):
+        raise AssertionError("'report.artifacts' should be a list")  # noqa: S101
