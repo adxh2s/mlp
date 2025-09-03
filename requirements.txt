@@ -14,3 +14,4 @@ jinja2>=3.1
 streamlit>=1.36
 ruff>=0.12
 mypy>=1.17
+setuptools>=80.0

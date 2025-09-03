@@ -1,2 +1,14 @@
+# fichiers compilés Python
 *.pyc
-/tmp/*
+
+# Directories temporary to ignore
+/tmp/
+*.tmp
+
+# Directories and files to ignore
+/data/
+*.csv
+
+# Ignore log files
+/logs/
+*.log

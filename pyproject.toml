@@ -7,7 +7,7 @@ name = "mlp"
 version = "0.1.0"
 description = "ML phases: EDA → Pipelines → Reports with Hydra/Pydantic/Jinja/Streamlit"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [{ name = "mlp-team" }]
 license = { text = "MIT" }
 dependencies = [
@@ -26,6 +26,7 @@ dependencies = [
   "mlflow>=2.12",
   "tpot>=0.12",
   "pyyaml>=6.0.1",
+  "setuptools>=80.0",
 ]
 
 [project.optional-dependencies]
