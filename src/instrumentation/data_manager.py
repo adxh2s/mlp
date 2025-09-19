@@ -1,25 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-
-# Standard library
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
-
-# Third-party
 import pandas as pd
-
-# Local
-from src.instrumentation.logger_mixin import LoggerMixin
 
 
 class DataManager:
-    """Manage pure data transformations and ML preparation.
-
-    Handles data loading, cleaning, validation, type inference,
-    and X/y splitting for machine learning workflows.
-    """
+    """Manage pure data transformations and ML preparation."""
 
     # Class constants
     NUMERIC_TYPES = {"int64", "float64", "int32", "float32"}
@@ -29,91 +18,113 @@ class DataManager:
 
     def __init__(self, config=None) -> None:
         """Initialize DataManager with configuration."""
+        # Accepter dict ou objet type Pydantic ayant model_dump fait en amont
         self.config = config or {}
 
+    # ---------- IO helpers ----------
+
+    @staticmethod
+    def load_csv(path: Path, encoding: str | None = None, sep: str | None = None, **kwargs) -> pd.DataFrame:
+        """Charger un CSV avec encodage/séparateur optionnels."""
+        if encoding is not None:
+            kwargs["encoding"] = encoding
+        if sep is not None:
+            kwargs["sep"] = sep
+        return pd.read_csv(path, **kwargs)
+
     def load_from_raw(self, raw_data: Any) -> pd.DataFrame:
-        """Convert raw data (dict, DataFrame, etc.) into pandas DataFrame."""
+        """Convert raw data (dict, DataFrame, list records) into pandas DataFrame."""
         if isinstance(raw_data, pd.DataFrame):
             return raw_data.copy()
-        elif isinstance(raw_data, dict):
-            return pd.DataFrame([raw_data])  # Single record
-        elif isinstance(raw_data, list):
+        if isinstance(raw_data, dict):
+            return pd.DataFrame([raw_data])
+        if isinstance(raw_data, list):
             return pd.DataFrame(raw_data)
-        else:
-            raise ValueError(f"Unsupported raw data type: {type(raw_data)}")
+        raise ValueError(f"Unsupported raw data type: {type(raw_data)}")
+
+    # ---------- Inference / cleaning ----------
 
     def infer_target_column(self, df: pd.DataFrame) -> str | None:
-        """Auto-detect the target column based on naming conventions."""
-        target_col = self.config.get("target_column")
-        if target_col and target_col in df.columns:
-            return target_col
+        """Return explicit target if configured; else optionally auto-detect."""
+        cfg = self.config or {}
+        target_col = cfg.get("target_column")
+        auto_detect = cfg.get("auto_detect_target", True)
 
-        # Auto-detection
+        # Priorité à la colonne explicitement fournie
+        if target_col:
+            return target_col if target_col in df.columns else None
+
+        # Si auto-détection désactivée, ne rien inférer
+        if not auto_detect:
+            return None
+
+        # Auto-detec par conventions basiques
         for col in df.columns:
             if col in self.TARGET_CANDIDATES:
                 return col
         return None
 
     def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply data cleaning: duplicates, missing values, outliers."""
+        """Apply data cleaning: duplicates, missing values, optional drops."""
         df_clean = df.copy()
 
         # Remove duplicates
-        initial_shape = df_clean.shape
         df_clean = df_clean.drop_duplicates()
 
         # Handle missing values based on strategy
-        missing_strategy = self.config.get("missing_strategy", "auto")
+        missing_strategy = (self.config or {}).get("missing_strategy", "auto")
         if missing_strategy == "drop":
             df_clean = df_clean.dropna()
         elif missing_strategy == "fill":
-            # Simple fill strategy
             numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
             categorical_cols = df_clean.select_dtypes(exclude=[np.number]).columns
-
             df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
             df_clean[categorical_cols] = df_clean[categorical_cols].fillna("Unknown")
 
-        # Drop columns if requested
-        drop_cols = self.config.get("drop_columns", [])
-        df_clean = df_clean.drop(columns=[col for col in drop_cols if col in df_clean.columns])
+        # Drop columns if requested (filtrer vides/espaces)
+        drop_cols = (self.config or {}).get("drop_columns", []) or []
+        drop_cols = [c for c in (d.strip() if isinstance(d, str) else d for d in drop_cols) if c and c in df_clean.columns]
+        if drop_cols:
+            df_clean = df_clean.drop(columns=drop_cols)
 
         return df_clean
 
     def infer_column_types(self, df: pd.DataFrame) -> dict[str, str]:
         """Infer optimal data types for each column."""
-        type_map = {}
+        type_map: dict[str, str] = {}
+        n = len(df)
         for col in df.columns:
-            unique_ratio = df[col].nunique() / len(df)
-            if df[col].dtype in self.NUMERIC_TYPES:
-                if unique_ratio < self.CATEGORICAL_THRESHOLD:
-                    type_map[col] = "categorical"
-                else:
-                    type_map[col] = "numeric"
+            # Si la colonne est entièrement NA, la considérer catégorielle pour éviter divisions
+            if n == 0 or df[col].isna().all():
+                type_map[col] = "categorical"
+                continue
+            unique_ratio = df[col].nunique(dropna=True) / max(n, 1)
+            if str(df[col].dtype) in self.NUMERIC_TYPES:
+                type_map[col] = "categorical" if unique_ratio < self.CATEGORICAL_THRESHOLD else "numeric"
             else:
                 type_map[col] = "categorical"
         return type_map
 
-    def split_features_target(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series | None]:
-        """Split DataFrame into features (X) and target (y)."""
-        target_col = self.infer_target_column(df)
+    # ---------- Split / validation ----------
 
+    def split_features_target(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series | None]:
+        """Split DataFrame into features (X) and target (y) honoring configuration."""
+        target_col = self.infer_target_column(df)
         if target_col:
-            X = df.drop(columns=[target_col])
             y = df[target_col]
+            X = df.drop(columns=[target_col])
             return X, y
-        else:
-            return df, None
+        return df, None
 
     def validate_data(self, X: pd.DataFrame, y: pd.Series | None = None) -> bool:
-        """Validate prepared data for ML workflows."""
+        """Basic validations for ML workflows."""
         if len(X) < self.MIN_SAMPLES_THRESHOLD:
             raise ValueError(f"Insufficient samples: {len(X)} < {self.MIN_SAMPLES_THRESHOLD}")
-
         if y is not None and len(X) != len(y):
             raise ValueError(f"Feature/target length mismatch: {len(X)} != {len(y)}")
-
         return True
+
+    # ---------- Main entry ----------
 
     def prepare_for_ml(self, raw_data: Any) -> tuple[pd.DataFrame, pd.Series | None]:
         """Full preparation pipeline: load → clean → split → validate."""
@@ -128,5 +139,4 @@ class DataManager:
 
         # 4. Validate
         self.validate_data(X, y)
-
         return X, y

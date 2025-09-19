@@ -7,6 +7,12 @@ msgstr ""
 msgid "file_init"
 msgstr "Initialisation de l’orchestrateur fichiers (in: {in_dir}, out: {out_dir})"
 
+msgid "file_orchestrator_disabled_required"
+msgstr "Désactivation de FileOrchestrator requis"
+
+msgid "file_orchestrator_failed"
+msgstr "Lancement de FileOrchestrator a échoué"
+
 msgid "no_input_file"
 msgstr "Aucun fichier d’entrée trouvé"
 

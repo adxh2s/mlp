@@ -14,7 +14,7 @@ from src.datanalysis.eda_profile import EDAProfile
 from src.datanalysis.eda_summary import EDASummary
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import EDA_DONE, EDA_START
+from src.instrumentation.messages_taxonomy import EDA_DONE, EDA_ORCHESTRATOR_FAILED, EDA_START
 from src.orchestrators.messages import MessageOrchestrator
 
 # Constants

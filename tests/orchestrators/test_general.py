@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 from omegaconf import OmegaConf
 from sklearn.datasets import load_breast_cancer
 
@@ -57,11 +58,14 @@ def test_general_orchestrator_with_file(tmp_path: Path) -> None:
 
     # Dataset réduit
     ds = load_breast_cancer(as_frame=True)
-    x = ds.frame.drop(columns=["target"]).head(30)
-    y = ds.frame["target"].head(30)
+    frame = ds.frame  # type: ignore[attr-defined]
+    if not isinstance(frame, pd.DataFrame):
+        raise TypeError("Expected 'frame' to be a pandas DataFrame")
+    X = frame.drop(columns=["target"]).head(30)
+    y = frame["target"].head(30)
 
     go = GeneralOrchestrator(cfg_mgr)
-    out = go.run(x, y)
+    out = go.run(X, y)
 
     # Vérifications avec exceptions explicites (pas d'assert)
     if "file" not in out:

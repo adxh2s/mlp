@@ -27,3 +27,10 @@ msgstr "Analyse de données échouée"
 
 msgid "data_processing_failed"
 msgstr "Traitement de données échoué"
+
+msgid "data_orchestrator_disabled_not_df"
+msgstr "DataOrchestrator disabled"
+
+msgid "data_orchestrator_failed"
+msgstr "DataOrchestrator lauch failed"
+

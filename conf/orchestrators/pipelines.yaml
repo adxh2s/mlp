@@ -1,48 +1,134 @@
-orchestrators:
+pipelines:
+  enabled: true
+  out_dir: "outputs/mlp/pipelines_cv"
+
+  active: ["lin_svc", "rf_grid", "svc_random", "tpot_auto", "lazy_cls"]
+
+  # Configuration de la recherche d’hyperparamètres (déclarative)
+  cv:
+    type: grid                # grid | random | halving_grid | halving_random
+    n_iter: 40                # utilisé si type ∈ {random, halving_random}
+    factor: 2                 # utilisé si type ∈ {halving_grid, halving_random}
+    scoring:                  # str | liste | mapping {'f1': 'f1', ...}
+      f1: f1
+      roc_auc: roc_auc
+    refit: f1                 # métrique utilisée pour refit si scoring multiple
+    cv_folds: 5               # alias de n_splits
+    shuffle: true
+    random_state: 42
+    n_jobs: -1
+    verbose: 1
+    return_train_score: true
+    error_score: "raise"
+
+  # Politique "auto" (fallback) pour ColumnTransformer si aucune règle colonne
+  policy:
+    strategy: auto            # auto | none
+    numeric:
+      scaler: auto            # auto | StandardScaler | RobustScaler | MinMaxScaler
+      robust_outlier_iqr: 3.0
+    categorical:
+      encoder: auto           # auto | OneHotEncoder | TargetEncoder | Hashing
+      max_onehot_cardinality: 20
+      handle_unknown: ignore
+      min_frequency: 0.01
+
   pipelines:
-    enabled: true
-    cv:
-      cv_folds: 5
-      scoring: [f1, balanced_accuracy, average_precision]
-    pipelines:
-      - name: linear_pca_svc
-        steps:
-          preprocess: { imputer: simple, scaler: standard }
-          feature_selection: { select_k_best: 100 }
-          reduction:
-            type: pca
-            params: { n_components: [0.8, 0.9, 0.95] }
-          estimator:
-            type: svc
-            params: { kernel: [linear], C: [0.1, 1, 10] }
-      - name: tree_no_reduction
-        steps:
-          preprocess: { imputer: simple }
-          estimator:
-            type: random_forest
-            params: { n_estimators: [200, 500], max_depth: [null, 10, 20] }
-      - name: umap_svc
-        steps:
-          preprocess: { imputer: simple, scaler: standard }
-          feature_selection: { select_percentile: 50 }
-          reduction:
-            type: umap
-            params: { n_components: [10, 20], n_neighbors: [15, 30], min_dist: [0.0, 0.1] }
-          estimator:
-            type: svc
-            params: { kernel: [rbf], C: [1, 10], gamma: [scale] }
-    automl:
+    - name: lin_svc
       enabled: true
-      library: tpot
-      # Paramètres TPOT
-      tpot:
-        generations: 5
-        population_size: 50
-        max_time_mins: 5         # budget temps (alternatif à generations/population)
-        scoring: f1
-        cv: 5
-        n_jobs: -1
-        verbosity: 2
-        random_state: 42
-        export_best_pipeline: true
-        export_path: "pipelines/tpot_best_pipeline.py"
+      steps:
+        preprocess:
+          enabled: true
+          imputer: simple
+          column_transformer:
+            enabled: true
+            policy: auto
+        reduction:
+          type: pca
+          params:
+            n_components: [10, 20, 40]
+        estimator:
+          type: "sklearn.svm.SVC"
+          params:
+            C: [0.1, 1.0, 10.0]
+            kernel: ["linear"]
+
+    - name: rf_grid
+      enabled: true
+      steps:
+        preprocess:
+          enabled: true
+          imputer: simple
+          column_transformer:
+            enabled: true
+            policy: manual
+            columns:
+              - include_regex: "^cat_"
+                categorical:
+                  encoder: OneHotEncoder
+                  handle_unknown: ignore
+                  min_frequency: 0.01
+              - include: ["age", "income"]
+                numeric:
+                  scaler: StandardScaler
+        estimator:
+          type: "sklearn.ensemble.RandomForestClassifier"
+          params:
+            n_estimators: [200, 400]
+            max_depth: [null, 10, 20]
+
+    # Exemple RandomizedSearch/Successive Halving (via 'distributions')
+    - name: svc_random
+      enabled: true
+      steps:
+        preprocess:
+          enabled: true
+          imputer: simple
+          column_transformer:
+            enabled: true
+            policy: auto
+        estimator:
+          type: "sklearn.svm.SVC"
+          params:
+            kernel: ["rbf"]
+          distributions:
+            C:
+              dist: loguniform
+              low: 1e-3
+              high: 1e2
+            gamma:
+              dist: loguniform
+              low: 1e-4
+              high: 1e-1
+
+    # AutoML exécuté comme un pipeline supplémentaire (TPOT)
+    - name: tpot_auto
+      enabled: true
+      automl:
+        library: tpot
+        name: "tpot_default"
+        tpot:
+          generations: 5
+          population_size: 50
+          scoring: f1
+          cv: 5
+          n_jobs: -1
+          export_best_pipeline: true
+          export_path: "pipelines/tpot_best_pipeline.py"
+
+    # AutoML exécuté comme un pipeline supplémentaire (LazyClassifier)
+    - name: lazy_cls
+      enabled: true
+      automl:
+        library: lazypredict         # nécessite un support côté evaluator
+        name: "lazy_default"
+        lazy:
+          include: null              # liste optionnelle de modèles à inclure
+          exclude: null              # liste optionnelle de modèles à exclure
+          custom_metric: f1          # métrique principale
+          cv: 5
+          n_jobs: -1
+          verbose: 0
+          top_n: 25                  # conserver les N meilleurs dans le tableau
+          save_table: true
+          table_path: "pipelines/lazy_results.csv"

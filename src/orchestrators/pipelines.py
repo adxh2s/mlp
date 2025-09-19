@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 """
-Pipelines orchestrator: build and evaluate declared pipelines with
-localized, structured logging using a shared MessageOrchestrator.
+Orchestrateur de pipelines: construit et évalue les pipelines déclarés,
+en émettant des événements structurés via un MessageOrchestrator partagé.
 """
 
-import logging
-import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -21,18 +20,24 @@ from src.instrumentation.messages_taxonomy import (
     PIPELINES_EVAL_START,
     PIPELINES_START,
 )
-from src.modeling.evaluator import PipelineEvaluator
+from src.modeling.pipelines.evaluator import PipelineEvaluator
 from src.orchestrators.messages import MessageOrchestrator
 
-# Constants
-PIPELINES_DIR = "pipelines"
-KEY_RESULTS = "results"
+# Constantes
 LOGGER_NAME = "mlp.orchestrators.pipelines"
 DOMAIN = "pipelines"
+PIPELINES_DIRNAME = "pipelines"
+KEY_RESULTS = "results"
 
 
 class PipelineOrchestrator(LoggerMixin):
-    """Build and evaluate configured pipelines, emitting localized events."""
+    """
+    Orchestrateur des pipelines ML.
+
+    - Filtre les pipelines actifs (enabled + active list).
+    - Délègue la construction/évaluation à PipelineEvaluator.
+    - Produit des événements localisés (MessageOrchestrator).
+    """
 
     def __init__(
         self,
@@ -42,93 +47,88 @@ class PipelineOrchestrator(LoggerMixin):
         logger_manager: Optional[LoggerManager] = None,
         out_dir: Optional[str] = None,
         cfg_mgr: Optional[Any] = None,
+        ctx: Optional[dict[str, str]] = None,
     ) -> None:
-        """
-        Initialize pipelines orchestrator.
-
-        Args:
-            cfg: Pipelines configuration section.
-            project_dir: Project artifacts root.
-            random_state: Random seed for CV/reproducibility.
-            logger_manager: Logger manager instance (optional).
-            out_dir: Optional explicit output directory for artifacts.
-            cfg_mgr: Optional ConfigManager for message orchestrator creation.
-        """
         self.cfg = cfg
-        self.out_dir = out_dir if out_dir else os.path.join(project_dir, PIPELINES_DIR)
         self.random_state = random_state
-        os.makedirs(self.out_dir, exist_ok=True)
+        self.ctx = ctx or {}
 
-        self.lm = logger_manager
-        self.LOGGER_NAME = LOGGER_NAME
-        if self.lm is not None:
-            self._init_logger(self.lm)
+        # Sortie des artefacts (priorité: arg -> YAML -> défaut)
+        cfg_out = getattr(self.cfg, "out_dir", None)
+        base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
+
+        if out_dir:
+            self.out_dir = Path(out_dir)
+        elif cfg_out:
+            p = Path(cfg_out)
+            self.out_dir = p if p.is_absolute() else base_dir / p
         else:
-            self.log = logging.getLogger(LOGGER_NAME)
+            self.out_dir = base_dir / PIPELINES_DIR  # constante déjà définie dans ce module
 
-        # Message orchestrator (injected by GeneralOrchestrator via attach_messages)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+
+
+        # Logging
+        self.LOGGER_NAME = LOGGER_NAME
+        if logger_manager:
+            self._init_logger(logger_manager)
+
+        # Messages (injecté par GeneralOrchestrator)
         self.msg: Optional[MessageOrchestrator] = None
 
     def attach_messages(self, msg: MessageOrchestrator) -> None:
-        """Attach a MessageOrchestrator for localized emissions."""
+        """Attache l’émetteur de messages localisés à l’orchestrateur."""
         self.msg = msg
 
+    def _filter_active_specs(self) -> List[Dict[str, Any]]:
+        active = set(getattr(self.cfg, "active", []) or [])
+        specs = []
+        for spec in self.cfg.pipelines:
+            # Pydantic -> dict
+            sdict = spec.model_dump() if hasattr(spec, "model_dump") else dict(spec)
+            if not sdict.get("enabled", True):
+                continue
+            if active and sdict.get("name") not in active:
+                continue
+            specs.append(sdict)
+        return specs
+
     def run(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, Any]:
-        """Evaluate configured pipelines and return summarized results."""
+        """Exécute les pipelines actifs et retourne la liste des résultats."""
         if not self.cfg.enabled:
             if self.msg:
                 self.msg.emit(DOMAIN, PIPELINES_DISABLED)
-            else:
-                self.log.info("pipelines_disabled")
             return {KEY_RESULTS: []}
 
-        n_rows, n_cols = X.shape
+        specs = self._filter_active_specs()
         if self.msg:
-            self.msg.emit(DOMAIN, PIPELINES_START, out_dir=self.out_dir, n_rows=n_rows, n_cols=n_cols)
-        else:
-            self.log.info(
-                "pipelines_start",
-                extra={
-                    "extra_fields": {
-                        "out_dir": self.out_dir,
-                        "n_rows": n_rows,
-                        "n_cols": n_cols,
-                    }
-                },
-            )
-
-        evaluator = PipelineEvaluator(
-            out_dir=self.out_dir,
-            random_state=self.random_state,
-            mlflow_enabled=False,
-            logger_manager=self.lm,
-        )
+            self.msg.emit(DOMAIN, PIPELINES_START, out_dir=str(self.out_dir), count=len(specs))
 
         results: List[Dict[str, Any]] = []
-        for spec in self.cfg.pipelines:
-            sdict = spec.model_dump() if hasattr(spec, "model_dump") else spec
-            name = sdict.get("name")
-            if self.msg:
-                self.msg.emit(DOMAIN, PIPELINE_EVAL_START, name=name)
-            else:
-                self.log.info("pipeline_eval_start", extra={"extra_fields": {"name": name}})
+        cv_cfg = getattr(self.cfg, "cv", {}) or {}
+        global_policy = getattr(self.cfg, "policy", {}) or {}
 
-            res = evaluator.evaluate(X, y, sdict, self.cfg.cv)
+        evaluator = PipelineEvaluator(
+            out_dir=str(self.out_dir),
+            random_state=self.random_state,
+            mlflow_enabled=False,
+            logger_manager=getattr(self, "lm", None),
+        )
 
-            best_score = res.get("best_score")
+        for sdict in specs:
+            name = sdict.get("name", "pipeline")
+
             if self.msg:
-                self.msg.emit(DOMAIN, PIPELINE_EVAL_DONE, name=res.get("name"), best_score=best_score)
-            else:
-                self.log.info(
-                    "pipeline_eval_done",
-                    extra={"extra_fields": {"name": res.get("name"), "best_score": best_score}},
-                )
+                self.msg.emit(DOMAIN, PIPELINES_EVAL_START, name=name)
+
+            res = evaluator.evaluate(X, y, sdict, cv_cfg, global_policy)
+
+            if self.msg:
+                self.msg.emit(DOMAIN, PIPELINES_EVAL_DONE, name=res.get("name"), best_score=res.get("best_score"))
 
             results.append(res)
 
         if self.msg:
             self.msg.emit(DOMAIN, PIPELINES_DONE, count=len(results))
-        else:
-            self.log.info("pipelines_done", extra={"extra_fields": {"count": len(results)}})
 
         return {KEY_RESULTS: results}

@@ -1,22 +1,24 @@
 defaults:
   - orchestrators/config
+  - orchestrators/messages
+  - orchestrators/file
   - orchestrators/data
   - orchestrators/eda
-  - orchestrators/file
-  - orchestrators/messages
   - orchestrators/pipelines
   - orchestrators/report
+  - _self_
   
 project:
   name: mlp
   random_state: 42
   output_dir: outputs
+  allow_example_fallback: false
 
 logger:
   backend: structlog        # "stdlib" ou "structlog"
   app_name: mlp
   level: INFO               # DEBUG/INFO/WARNING/ERROR/CRITICAL
-  json_mode: false          # true en prod pour JSON
+  json_mode: true          # true en prod pour JSON
   file_path: logs/mlp.log   # ex: logs/mlp.log
   file_max_bytes: 5242880
   file_backup_count: 3

@@ -5,7 +5,7 @@ Report orchestrator: render consolidated reports and emit events.
 """
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.config.schemas import AppConfig, ReportConfig
 from src.datavisualization.report_renderer import ReportRenderer
@@ -30,23 +30,30 @@ class ReportOrchestrator(LoggerMixin):
         project_dir: str,
         app_cfg: AppConfig,
         lm: LoggerManager,
+        ctx: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Initialize report orchestrator.
 
         Args:
             cfg: Report configuration section.
-            project_dir: Project artifacts root.
+            project_dir: Project artifacts root (fallback if ctx not provided).
             app_cfg: Validated application config.
             lm: Logger manager instance.
+            ctx: Optional application context (preferred for directories).
         """
         self.cfg = cfg
         self.app_cfg = app_cfg
-        self.out_dir = os.path.join(project_dir, REPORTS_DIR)
+        self.ctx = ctx or {}
+
+        # Resolve output directory priority: ctx['reports_dir'] > project_dir/reports
+        if self.ctx.get("reports_dir"):
+            self.out_dir = self.ctx["reports_dir"]
+        else:
+            self.out_dir = os.path.join(project_dir, REPORTS_DIR)
         os.makedirs(self.out_dir, exist_ok=True)
 
         self.renderer = ReportRenderer(TEMPLATES_DIR)
-
         self.LOGGER_NAME = LOGGER_NAME
         self._init_logger(lm)
 
@@ -61,9 +68,7 @@ class ReportOrchestrator(LoggerMixin):
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_START, out_dir=self.out_dir)
         else:
-            self.log.info(
-                "report_start", extra={"extra_fields": {"out_dir": self.out_dir}}
-            )
+            self.log.info("report_start", extra={"extra_fields": {"out_dir": self.out_dir}})
 
         out = self.renderer.render(
             out_dir=self.out_dir,
@@ -76,8 +81,6 @@ class ReportOrchestrator(LoggerMixin):
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_DONE, artifacts=out.get("artifacts"))
         else:
-            self.log.info(
-                "report_done", extra={"extra_fields": {"artifacts": out.get("artifacts")}}
-            )
+            self.log.info("report_done", extra={"extra_fields": {"artifacts": out.get("artifacts")}})
 
         return out

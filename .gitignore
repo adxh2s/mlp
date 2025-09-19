@@ -10,6 +10,7 @@
 
 # Directories and files to ignore
 /data/
+/outputs/
 *.csv
 
 # Ignore log files

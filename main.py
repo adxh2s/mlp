@@ -1,63 +1,40 @@
 from __future__ import annotations
 
-# Standard library
-from pathlib import Path
+import sys
 
-# Third-party
 import hydra
 from omegaconf import DictConfig
 
-# Local
-from src.instrumentation.config_manager import ConfigManager
-from src.instrumentation.logger_factory import build_logger_manager
+from src.instrumentation.messages_taxonomy import APP_DONE, APP_START
+from src.orchestrators.app import AppOrchestrator
 from src.orchestrators.general import GeneralOrchestrator
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+@hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
-    """Main entry point for MLP application."""
-    # 1) Load and validate configuration
-    cfg_mgr = ConfigManager(cfg)
-    app_cfg = cfg_mgr.load()
+    """
+    Entry point: bootstraps logging and configuration via AppOrchestrator,
+    then delegates to GeneralOrchestrator for application flow.
+    """
+    app = AppOrchestrator(cfg)
+    lm = app.logger_manager
+    msg = app.message_orchestrator
 
-    # 2) Setup logging
-    logger_settings = cfg_mgr.build_logger_settings()
-    if logger_settings.file_path:
-        Path(logger_settings.file_path).expanduser().resolve().parent.mkdir(
-            parents=True, exist_ok=True
-        )
-
-    lm = build_logger_manager(logger_settings)
-    lm.configure()
-    log = lm.get_logger(__name__)
-
-    log.info(
-        "app_start",
-        extra={"extra_fields": {"entry": "main", "log_file": logger_settings.file_path}},
-    )
-
+    log = lm.get_logger("__main__")
+    msg.emit("app", APP_START, entry="main", log_file=app.logger_manager.cfg.file_path)
     try:
-        # 3) Initialize and run orchestrator
-        go = GeneralOrchestrator(cfg_mgr, logger_manager=lm)
-
-        # The orchestrator will auto-detect the mode:
-        # - File mode if file orchestrator is enabled
-        # - Example data mode as fallback
-        results = go.run()
-
-        log.info(
-            "app_done",
-            extra={
-                "extra_fields": {
-                    "orchestrators_run": list(results.keys()),
-                    "report_artifacts": results.get("report", {}).get("artifacts"),
-                }
-            },
+        go = GeneralOrchestrator(
+            app.config_manager,
+            logger_manager=lm,
+            message_orchestrator=msg,
+            ctx=app.ctx,
         )
-
-    except Exception as exc:
-        log.error("app_failed", extra={"extra_fields": {"error": str(exc)}})
-        raise
+        results = go.run()
+        msg.emit("app", APP_DONE, orchestrators_run=list(results.keys()),
+         report_artifacts=results.get("report", {}).get("artifacts"))
+    except Exception as exc:  # noqa: BLE001
+        msg.emit("app", "app_failed", error=str(exc))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

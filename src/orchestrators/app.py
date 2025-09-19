@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+"""
+App orchestrator: bootstrap logging and configuration, and build a Hydra-safe
+project context (ctx) consumed by downstream orchestrators.
+"""
+
+from pathlib import Path
+
+from hydra.utils import get_original_cwd
+from omegaconf import DictConfig
+
+from src.instrumentation.config_manager import ConfigManager
+from src.instrumentation.logger_manager import LoggerManager
+from src.orchestrators.config import ConfigOrchestrator
+from src.orchestrators.logger import LoggerOrchestrator
+from src.orchestrators.messages import MessageOrchestrator
+
+
+class AppOrchestrator:
+    """
+    Boot orchestrator:
+    - Build LoggerManager (LoggerOrchestrator) and emit 'logger_ready'
+    - Build ConfigManager and run ConfigOrchestrator (emit 'config_ready')
+    - Compute ctx with absolute, Hydra-safe paths
+    """
+
+    def __init__(self, hydra_cfg: DictConfig) -> None:
+        # 1) Config manager (Hydra -> Pydantic)
+        self.config_manager = ConfigManager(hydra_cfg)
+
+        # 2) Logger bootstrap first (so config messages are logged nicely)
+        self.logger_orchestrator = LoggerOrchestrator(hydra_cfg)
+        self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
+
+        # 3) Config orchestrator: validate and expose AppConfig + messages
+        self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        app_cfg = self.config_orchestrator.get_app_config()
+
+        # 4) Messages (shared) for downstream orchestrators
+        self.message_orchestrator = MessageOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+
+        # 5) Build ctx (Hydra-safe absolute paths)
+        root = Path(get_original_cwd())
+        outputs_root = (root / app_cfg.project.output_dir).resolve()
+        project_dir = (outputs_root / app_cfg.project.name).resolve()
+
+        file_cfg = getattr(app_cfg.orchestrators, "file", None)
+        if file_cfg is None:
+            self.message_orchestrator.emit("config", "config_section_missing", section="orchestrators.file", used_defaults={"data_dir": "data", "in_dir": "in", "out_dir": "out"})
+            data_dir, in_dir, out_dir = "data", "in", "out"
+        else:
+            data_dir, in_dir, out_dir = file_cfg.data_dir, file_cfg.in_dir, file_cfg.out_dir
+
+        data_root = (root / data_dir).resolve()
+        data_in = (data_root / in_dir).resolve()
+        data_out = (data_root / out_dir).resolve()
+        eda_dir = (project_dir / "eda").resolve()
+        reports_dir = (project_dir / "reports").resolve()
+
+        for d in (outputs_root, project_dir, data_in, data_out, eda_dir, reports_dir):
+            d.mkdir(parents=True, exist_ok=True)
+
+        self.ctx: dict[str, str] = {
+            "root_dir": str(root),
+            "outputs_root": str(outputs_root),
+            "project_dir": str(project_dir),
+            "data_root": str(data_root),
+            "data_in": str(data_in),
+            "data_out": str(data_out),
+            "eda_dir": str(eda_dir),
+            "reports_dir": str(reports_dir),
+        }

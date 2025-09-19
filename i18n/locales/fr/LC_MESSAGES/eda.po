@@ -9,3 +9,7 @@ msgstr "Démarrage EDA"
 
 msgid "eda_done"
 msgstr "EDA terminée"
+
+msgid "eda_orchestrator_failed"
+msgstr "Lancement d'EDAOrchestrator échoué"
+

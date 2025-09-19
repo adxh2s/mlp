@@ -1,0 +1,25 @@
+{
+  "shape": {
+    "n_samples": 30,
+    "n_features": 30
+  },
+  "na_top10": {
+    "mean radius": 0,
+    "mean texture": 0,
+    "mean perimeter": 0,
+    "mean area": 0,
+    "mean smoothness": 0,
+    "mean compactness": 0,
+    "mean concavity": 0,
+    "mean concave points": 0,
+    "mean symmetry": 0,
+    "mean fractal dimension": 0
+  },
+  "duplicates": 0,
+  "numeric_features": 30,
+  "max_abs_corr_offdiag": 0.9942122868302707,
+  "y_distribution": {
+    "0": 0.9,
+    "1": 0.1
+  }
+}
