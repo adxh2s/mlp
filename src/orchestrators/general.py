@@ -1,21 +1,14 @@
 from __future__ import annotations
 
-"""
-General orchestrator: coordinates file intake, data processing, EDA,
-pipelines, and reporting with localized, structured logging.
-
-This version expects LoggerManager, MessageOrchestrator, and ctx to be
-injected (from AppOrchestrator), but falls back gracefully if not provided.
-"""
-
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 from sklearn.datasets import load_breast_cancer
 
 from src.config.schemas import AppConfig
 from src.instrumentation.config_manager import ConfigManager
+from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.messages_taxonomy import (
     DATA_ORCHESTRATOR_DISABLED_NOT_DF,
@@ -40,6 +33,13 @@ from src.orchestrators.messages import MessageOrchestrator
 from src.orchestrators.pipelines import PipelineOrchestrator
 from src.orchestrators.report import ReportOrchestrator
 
+"""
+General orchestrator: coordinates file intake, data processing, EDA,
+pipelines, and reporting with localized, structured logging.
+
+This version expects LoggerManager, MessageOrchestrator, and ctx to be
+injected (from AppOrchestrator), but falls back gracefully if not provided.
+"""
 
 LOGGER_NAME = "mlp.orchestrators.general"
 DOMAIN = "general"
@@ -85,7 +85,6 @@ class GeneralOrchestrator(LoggerMixin):
         self.msg_orch.emit(DOMAIN, GENERAL_INIT, project_dir=self.project_dir)
 
     def _fallback_logger(self):
-        from src.instrumentation.logger_factory import build_logger_manager
 
         lm = build_logger_manager(self.cfg.logger)
         lm.configure()
@@ -183,18 +182,35 @@ class GeneralOrchestrator(LoggerMixin):
         # Pipelines
         if orchestrators.pipelines.enabled and y is not None:
             try:
+                # Résolution robuste du répertoire de sortie des pipelines
+                p_out_cfg = getattr(orchestrators.pipelines, "out_dir", None)
+                if p_out_cfg:
+                    p = Path(p_out_cfg)
+                    if p.is_absolute():
+                        out_dir = str(p)
+                    elif p.parts and p.parts[0] == "outputs":
+                        # Résoudre depuis la racine du repo (root_dir) si disponible, sinon remonter depuis project_dir
+                        root_dir = getattr(self, "root_dir", None) or Path(self.project_dir).parent.parent
+                        out_dir = str(Path(root_dir) / p_out_cfg)
+                    else:
+                        out_dir = str(Path(self.project_dir) / p_out_cfg)
+                else:
+                    out_dir = str(Path(self.project_dir) / "pipelines_cv")
+
                 pipes = PipelineOrchestrator(
                     orchestrators.pipelines,
                     project_dir=self.project_dir,
                     random_state=self.cfg.project.random_state,
                     logger_manager=self.lm,
-                    out_dir=self.out_dir,
+                    out_dir=out_dir,
                     cfg_mgr=self.cfg_mgr,
                 )
+
                 self._attach_messages(pipes)
                 results[KEY_PIPELINES] = pipes.run(X, y)
             except Exception as exc:  # noqa: BLE001
                 self.msg_orch.emit(DOMAIN, PIPELINES_ORCHESTRATOR_FAILED, level="error", error=str(exc))
+
 
         # Report
         if orchestrators.report.enabled:

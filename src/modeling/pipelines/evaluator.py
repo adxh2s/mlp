@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 """
 Évaluateur de pipelines:
 - Optimisation via GridSearchCV / RandomizedSearchCV / Halving* (cv.type).
@@ -7,11 +6,13 @@ from __future__ import annotations
 - Export des résultats en CSV et intégration DI logger/messages.
 """
 
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
+
+# Activer Halving* dans scikit-learn
 from sklearn.experimental import enable_halving_search_cv  # noqa: F401
 from sklearn.model_selection import (
     GridSearchCV,
@@ -23,6 +24,8 @@ from sklearn.model_selection import (
 )
 
 from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
+
+# Aligner l’import sur la fabrique présente
 from src.modeling.pipelines.factory import PipelineFactory
 
 # =========================
@@ -41,7 +44,7 @@ CV_TYPE = "type"
 CV_SCORING = "scoring"
 CV_REFIT = "refit"
 CV_N_SPLITS = "n_splits"
-CV_CV_FOLDS = "cv_folds"      # alias
+CV_CV_FOLDS = "cv_folds"  # alias
 CV_SHUFFLE = "shuffle"
 CV_RANDOM_STATE = "random_state"
 CV_N_JOBS = "n_jobs"
@@ -84,10 +87,6 @@ LAZY_TOP_N = "top_n"
 LAZY_TABLE_PATH = "table_path"
 LAZY_DEFAULT_CSV = "lazy_results.csv"
 
-# =========================
-# Implémentation
-# =========================
-
 
 class PipelineEvaluator(LoggerMixin):
     """Évalue un spec pipeline avec l’algorithme d’optimisation demandé ou un backend AutoML dédié."""
@@ -117,6 +116,9 @@ class PipelineEvaluator(LoggerMixin):
         if logger_manager:
             self._init_logger(logger_manager)
 
+    # -------------------------
+    # Utilitaires internes
+    # -------------------------
     @staticmethod
     def _cv(cv_cfg: Dict[str, Any]) -> StratifiedKFold:
         """Construit un StratifiedKFold depuis la section cv du YAML."""
@@ -133,6 +135,25 @@ class PipelineEvaluator(LoggerMixin):
         refit = cv_cfg.get(CV_REFIT, scoring if isinstance(scoring, str) else DEFAULT_REFIT)
         return scoring, refit
 
+    @staticmethod
+    def _sanitize_space(pipe, space: Dict[str, Any] | None) -> Dict[str, Any]:
+        """
+        Supprime des clés 'step__param' visant des étapes absentes
+        ou remplacées par 'passthrough' (str).
+        """
+        if not space:
+            return {}
+        valid: Dict[str, Any] = {}
+        for k, v in space.items():
+            if "__" not in k:
+                valid[k] = v
+                continue
+            step, _ = k.split("__", 1)
+            est = pipe.named_steps.get(step)
+            if est is not None and not isinstance(est, str):
+                valid[k] = v
+        return valid
+
     def _search(self, cv_type: str, estimator, scoring, refit, cv, grid, dists, cv_cfg: Dict[str, Any]):
         """Construit l’objet de recherche d’hyperparamètres selon cv.type."""
         common = dict(
@@ -144,8 +165,10 @@ class PipelineEvaluator(LoggerMixin):
             return_train_score=bool(cv_cfg.get(CV_RETURN_TRAIN_SCORE, True)),
             error_score=cv_cfg.get(CV_ERROR_SCORE, "raise"),
         )
+
         if cv_type == SEARCH_GRID:
             return GridSearchCV(estimator, param_grid=grid, **common)
+
         if cv_type == SEARCH_RANDOM:
             return RandomizedSearchCV(
                 estimator,
@@ -154,6 +177,7 @@ class PipelineEvaluator(LoggerMixin):
                 random_state=int(cv_cfg.get(CV_RANDOM_STATE, self.random_state)),
                 **common,
             )
+
         if cv_type == SEARCH_HALVING_GRID:
             return HalvingGridSearchCV(
                 estimator,
@@ -161,6 +185,7 @@ class PipelineEvaluator(LoggerMixin):
                 factor=int(cv_cfg.get(CV_FACTOR, 2)),
                 **common,
             )
+
         if cv_type == SEARCH_HALVING_RANDOM:
             return HalvingRandomSearchCV(
                 estimator,
@@ -169,14 +194,19 @@ class PipelineEvaluator(LoggerMixin):
                 random_state=int(cv_cfg.get(CV_RANDOM_STATE, self.random_state)),
                 **common,
             )
+
         msg = f"Unsupported cv.type={cv_type}"
         raise ValueError(msg)
 
+    # -------------------------
+    # AutoML runners
+    # -------------------------
     def _maybe_run_tpot(self, spec: Dict[str, Any], X: pd.DataFrame, y: pd.Series) -> Optional[Dict[str, Any]]:
         """Exécute TPOT si automl.library == 'tpot' et retourne un résumé."""
         automl = spec.get(AUTO_KEY) or {}
         if str(automl.get(AUTO_LIB, "")).lower() != LIB_TPOT:
             return None
+
         try:
             from tpot import TPOTClassifier  # lazy import
         except Exception as exc:  # noqa: BLE001
@@ -199,14 +229,17 @@ class PipelineEvaluator(LoggerMixin):
             random_state=self.random_state,
             verbosity=2,
         )
+
         t0 = time.time()
         tpot.fit(X, y)
         dur = time.time() - t0
+
         export = bool(tcfg.get(TPOT_EXPORT_BEST, False))
         export_path = self.out_dir / str(tcfg.get(TPOT_EXPORT_PATH, TPOT_DEFAULT_EXPORT))
         if export:
             export_path.parent.mkdir(parents=True, exist_ok=True)
             tpot.export(str(export_path))
+
         return {
             "name": automl.get(AUTO_NAME, LIB_TPOT),
             "best_score": float(tpot.score(X, y)),
@@ -222,6 +255,7 @@ class PipelineEvaluator(LoggerMixin):
         lib = str(automl.get(AUTO_LIB, "")).lower()
         if lib not in {LIB_LAZY_1, LIB_LAZY_2}:
             return None
+
         try:
             from lazypredict.Supervised import LazyClassifier  # type: ignore[import]
         except Exception as exc:  # noqa: BLE001
@@ -239,12 +273,14 @@ class PipelineEvaluator(LoggerMixin):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=self.random_state, stratify=y
         )
+
         clf = LazyClassifier(
             verbose=int(lcfg.get(LAZY_VERBOSE, 0)),
             ignore_warnings=True,
             custom_metric=None,
-            classifiers=None,  # include/exclude non standardisés -> défauts
+            classifiers=None,  # defaults
         )
+
         t0 = time.time()
         models_df, _ = clf.fit(X_train, X_test, y_train, y_test)
         dur = time.time() - t0
@@ -256,7 +292,12 @@ class PipelineEvaluator(LoggerMixin):
         table_path.parent.mkdir(parents=True, exist_ok=True)
         models_df.to_csv(table_path, index=True)
 
-        best_score = float(models_df.iloc[0]["Accuracy"]) if "Accuracy" in models_df.columns and len(models_df) > 0 else None
+        best_score = (
+            float(models_df.iloc[0]["Accuracy"])
+            if "Accuracy" in models_df.columns and len(models_df) > 0
+            else None
+        )
+
         return {
             "name": automl.get(AUTO_NAME, LIB_LAZY_1),
             "best_score": best_score,
@@ -266,6 +307,9 @@ class PipelineEvaluator(LoggerMixin):
             "best_params": {},
         }
 
+    # -------------------------
+    # Entrée principale
+    # -------------------------
     def evaluate(
         self,
         X: pd.DataFrame,
@@ -283,12 +327,18 @@ class PipelineEvaluator(LoggerMixin):
         out = self._maybe_run_tpot(spec, X, y)
         if out is not None:
             return out
+
         out = self._maybe_run_lazy(spec, X, y)
         if out is not None:
             return out
 
         # Pipeline + grids/distributions
         pipe, grid, dists = PipelineFactory.build(spec, global_policy)
+
+        # IMPORTANT: filtrer les clés visant des étapes absentes/passthrough
+        grid = self._sanitize_space(pipe, grid)
+        dists = self._sanitize_space(pipe, dists)
+
         scoring, refit = self._scoring_and_refit(cv_cfg)
         cv = self._cv(cv_cfg)
         cv_type = str(cv_cfg.get(CV_TYPE, SEARCH_GRID))

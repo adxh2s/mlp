@@ -65,31 +65,38 @@ class DataManager:
                 return col
         return None
 
+
     def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply data cleaning: duplicates, missing values, optional drops."""
+        """Apply data cleaning: duplicates, missing values, outliers."""
         df_clean = df.copy()
 
         # Remove duplicates
         df_clean = df_clean.drop_duplicates()
 
         # Handle missing values based on strategy
-        missing_strategy = (self.config or {}).get("missing_strategy", "auto")
+        missing_strategy = self.config.get("missing_strategy", "auto")
+
         if missing_strategy == "drop":
             df_clean = df_clean.dropna()
-        elif strategy == "fill":
-            num = df_clean.select_dtypes(include=[np.number]).columns
-            cat = df_clean.select_dtypes(exclude=[np.number]).columns
-            df_clean[num] = df_clean[num].fillna(df_clean[num].median())
-            df_clean[cat] = df_clean[cat].fillna("Unknown")
+        elif missing_strategy == "fill":
+            # Simple fill strategy
+            numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+            categorical_cols = df_clean.select_dtypes(exclude=[np.number]).columns
+            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
+            df_clean[categorical_cols] = df_clean[categorical_cols].fillna("Unknown")
+        elif missing_strategy == "auto":
+            # Heuristique par défaut: ne rien faire ici (le pipeline en aval gère)
+            pass
+        else:
+            # Valeur inconnue: fallback sûr
+            pass
 
-        # Filtrer les colonnes vides et n’enlever que celles présentes
-        drops = (self.config or {}).get("drop_columns", []) or []
-        drops = [c.strip() if isinstance(c, str) else c for c in drops]
-        drops = [c for c in drops if c and c in df_clean.columns]
-        if drops:
-            df_clean = df_clean.drop(columns=drops)
+        # Drop columns if requested
+        drop_cols = self.config.get("drop_columns", [])
+        df_clean = df_clean.drop(columns=[col for col in drop_cols if col in df_clean.columns])
 
         return df_clean
+
 
     def infer_column_types(self, df: pd.DataFrame) -> dict[str, str]:
         """Infer optimal data types for each column."""

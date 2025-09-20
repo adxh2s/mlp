@@ -1,36 +1,55 @@
 from __future__ import annotations
 
+# src/instrumentation/logger_manager.py
 import json
 import logging
 import logging.config
+import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+try:
+    import numpy as np  # type: ignore
+except Exception:
+    np = None  # type: ignore
+
+def _json_default(o: Any) -> Any:
+    if np is not None:
+        if isinstance(o, (np.bool_,)):  # type: ignore[attr-defined]
+            return bool(o)
+        if isinstance(o, (np.integer,)):  # type: ignore[attr-defined]
+            return int(o)
+        if isinstance(o, (np.floating,)):  # type: ignore[attr-defined]
+            f = float(o)
+            return f if math.isfinite(f) else None
+        if isinstance(o, (np.ndarray,)):  # type: ignore[attr-defined]
+            return o.tolist()
+    if isinstance(o, (datetime, date)):
+        return (o if isinstance(o, datetime) and o.tzinfo else datetime.fromtimestamp(o.timestamp(), tz=timezone.utc)).isoformat() if isinstance(o, datetime) else o.isoformat()
+    if isinstance(o, Path):
+        return str(o)
+    if isinstance(o, set):
+        return list(o)
+    return str(o)
 
 class JsonFormatter(logging.Formatter):
-    """JSON formatter for stdlib logging.
-
-    Extra fields can be passed via extra={"extra_fields": {...}}.
-    """
-
-    KEY_TIMESTAMP = "timestamp"
-    KEY_LEVEL = "level"
-    KEY_LOGGER = "logger"
-    KEY_MESSAGE = "message"
-    KEY_MODULE = "module"
-    KEY_FUNC = "func"
-    KEY_LINE = "line"
-    KEY_PROCESS = "process"
-    KEY_THREAD = "thread"
-    KEY_EXC_INFO = "exc_info"
-    KEY_EXTRA = "extra_fields"
+    KEY_TIMESTAMP: str = "timestamp"
+    KEY_LEVEL: str = "level"
+    KEY_LOGGER: str = "logger"
+    KEY_MESSAGE: str = "message"
+    KEY_MODULE: str = "module"
+    KEY_FUNC: str = "func"
+    KEY_LINE: str = "line"
+    KEY_PROCESS: str = "process"
+    KEY_THREAD: str = "thread"
+    KEY_EXC_INFO: str = "exc_info"
+    KEY_EXTRA: str = "extra_fields"
 
     def format(self, record: logging.LogRecord) -> str:
-        """Serialize a LogRecord as JSON."""
         payload: Dict[str, Any] = {
-            self.KEY_TIMESTAMP: datetime.utcfromtimestamp(record.created).isoformat() + "Z",
+            self.KEY_TIMESTAMP: datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             self.KEY_LEVEL: record.levelname.lower(),
             self.KEY_LOGGER: record.name,
             self.KEY_MESSAGE: record.getMessage(),
@@ -42,10 +61,14 @@ class JsonFormatter(logging.Formatter):
         }
         if record.exc_info:
             payload[self.KEY_EXC_INFO] = self.formatException(record.exc_info)
+
         extra = getattr(record, self.KEY_EXTRA, None)
         if isinstance(extra, dict):
             payload.update(extra)
-        return json.dumps(payload, ensure_ascii=False)
+
+        return json.dumps(payload, ensure_ascii=False, default=_json_default)
+
+
 
 
 @dataclass

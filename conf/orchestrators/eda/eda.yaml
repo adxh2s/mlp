@@ -1,4 +1,4 @@
 # conf/orchestrators/eda.yaml
 package: orchestrators.eda
 
-enabled: false
+enabled: true
