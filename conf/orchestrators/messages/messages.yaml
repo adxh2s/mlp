@@ -1,0 +1,15 @@
+# conf/orchestrators/messages.yaml
+package: orchestrators.messages
+
+enabled: true
+locale: fr
+locales_dir: i18n/locales
+domains:
+  - general
+  - config
+  - file
+  - data
+  - eda
+  - pipelines
+  - report
+  - streamlit_app

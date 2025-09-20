@@ -1,0 +1,4 @@
+# conf/orchestrators/config.yaml
+package: orchestrators.config
+
+enabled: true

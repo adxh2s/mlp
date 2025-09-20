@@ -1,0 +1,5 @@
+# conf/orchestrators/report.yaml
+package: orchestrators.report
+
+enabled: false
+formats: [html, md]

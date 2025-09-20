@@ -1,4 +1,0 @@
-orchestrators:
-  report:
-    enabled: true
-    formats: [html, md]

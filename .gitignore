@@ -5,6 +5,7 @@
 *.lock
 
 # Directories temporary to ignore
+/old/
 /tmp/
 *.tmp
 

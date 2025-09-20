@@ -1,3 +1,4 @@
+# src/instrumentation/data_manager.py
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,17 +76,18 @@ class DataManager:
         missing_strategy = (self.config or {}).get("missing_strategy", "auto")
         if missing_strategy == "drop":
             df_clean = df_clean.dropna()
-        elif missing_strategy == "fill":
-            numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-            categorical_cols = df_clean.select_dtypes(exclude=[np.number]).columns
-            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
-            df_clean[categorical_cols] = df_clean[categorical_cols].fillna("Unknown")
+        elif strategy == "fill":
+            num = df_clean.select_dtypes(include=[np.number]).columns
+            cat = df_clean.select_dtypes(exclude=[np.number]).columns
+            df_clean[num] = df_clean[num].fillna(df_clean[num].median())
+            df_clean[cat] = df_clean[cat].fillna("Unknown")
 
-        # Drop columns if requested (filtrer vides/espaces)
-        drop_cols = (self.config or {}).get("drop_columns", []) or []
-        drop_cols = [c for c in (d.strip() if isinstance(d, str) else d for d in drop_cols) if c and c in df_clean.columns]
-        if drop_cols:
-            df_clean = df_clean.drop(columns=drop_cols)
+        # Filtrer les colonnes vides et n’enlever que celles présentes
+        drops = (self.config or {}).get("drop_columns", []) or []
+        drops = [c.strip() if isinstance(c, str) else c for c in drops]
+        drops = [c for c in drops if c and c in df_clean.columns]
+        if drops:
+            df_clean = df_clean.drop(columns=drops)
 
         return df_clean
 
@@ -108,12 +110,15 @@ class DataManager:
     # ---------- Split / validation ----------
 
     def split_features_target(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series | None]:
-        """Split DataFrame into features (X) and target (y) honoring configuration."""
-        target_col = self.infer_target_column(df)
-        if target_col:
-            y = df[target_col]
-            X = df.drop(columns=[target_col])
-            return X, y
+        # Forcer la cible si configurée
+        cfg_target = (self.config or {}).get("target_column")
+        if cfg_target and cfg_target in df.columns:
+            return df.drop(columns=[cfg_target]), df[cfg_target]
+
+        # Sinon fallback auto-détection
+        tcol = self.infer_target_column(df)
+        if tcol:
+            return df.drop(columns=[tcol]), df[tcol]
         return df, None
 
     def validate_data(self, X: pd.DataFrame, y: pd.Series | None = None) -> bool:
@@ -130,13 +135,7 @@ class DataManager:
         """Full preparation pipeline: load → clean → split → validate."""
         # 1. Load data
         df = self.load_from_raw(raw_data)
-
-        # 2. Clean data
-        df_clean = self.clean_data(df)
-
-        # 3. Split X/y
-        X, y = self.split_features_target(df_clean)
-
-        # 4. Validate
+        df = self.clean_data(df)
+        X, y = self.split_features_target(df)
         self.validate_data(X, y)
         return X, y

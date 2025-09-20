@@ -32,9 +32,9 @@ class PipelineSpec(BaseModel):
 class PipelinesConfig(BaseModel):
     enabled: bool = True
     out_dir: str | None = None  # Nouveau champ
-    active: list[str] = Field(default_factory=list)  # Optionnel si utilisé
+    active: list[str] = Field(default_factory=list)
     cv: dict[str, Any] = Field(default_factory=dict)
-    policy: dict[str, Any] = Field(default_factory=dict)  # Optionnel si utilisé
+    policy: dict[str, Any] = Field(default_factory=dict)
     pipelines: list[PipelineSpec] = Field(default_factory=list)
 
 

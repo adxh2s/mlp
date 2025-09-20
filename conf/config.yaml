@@ -1,11 +1,10 @@
 defaults:
-  - orchestrators/config
-  - orchestrators/messages
-  - orchestrators/file
-  - orchestrators/data
-  - orchestrators/eda
-  - orchestrators/pipelines
-  - orchestrators/report
+  - orchestrators/config@orchestrators.config: config
+  - orchestrators/messages@orchestrators.messages: messages
+  - orchestrators/file@orchestrators.file: file
+  - orchestrators/data@orchestrators.data: data
+  - orchestrators/pipelines@orchestrators.pipelines: pipelines
+  - orchestrators/report@orchestrators.report: report
   - _self_
   
 project:
@@ -19,7 +18,7 @@ logger:
   app_name: mlp
   level: INFO               # DEBUG/INFO/WARNING/ERROR/CRITICAL
   json_mode: true          # true en prod pour JSON
-  file_path: logs/mlp.log   # ex: logs/mlp.log
+  file_path: logs/mlp.json   # ex: logs/mlp.log ou .json
   file_max_bytes: 5242880
   file_backup_count: 3
   uvicorn_noise_filter: true

@@ -1,0 +1,16 @@
+# conf/orchestrators/data.yaml
+package: orchestrators.data
+
+enabled: true
+target_column: "SHOT_MADE_FLAG"
+auto_detect_target: false
+
+drop_columns: ["SHOT_ZONE_BASIC", "SHOT_ZONE_AREA", "SHOT_ZONE_RANGE"]
+
+missing_strategy: "auto"
+categorical_threshold: 0.1
+min_samples_threshold: 10
+outlier_detection: false
+
+encoding: "utf-8"
+sep: ","
