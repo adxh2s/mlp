@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-"""
-Message orchestrator: localized, structured message emission.
-
-This orchestrator relies on the instrumentation/messages_manager module
-for translation (gettext-backed) and on LoggerManager for structured logs.
-"""
-
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.messages_manager import MessageManager
-from src.instrumentation.messages_taxonomy import (
-    MESSAGES_READY,
-)
+from src.instrumentation.messages_taxonomy import MESSAGES_READY
+
+"""
+Message orchestrator: localized, structured message emission.
+Relies on messages_manager for translation and LoggerManager for structured logs.
+"""
 
 # Constants
 LOGGER_NAME = "mlp.orchestrators.messages"
@@ -26,6 +23,18 @@ CFG_SECTION = "messages"
 CFG_DEFAULT_LOCALE = "fr"
 CFG_DEFAULT_LOCALES_DIR = "i18n/locales"
 CFG_DEFAULT_DOMAINS = ["general", "eda", "pipelines", "report", "data"]
+
+
+def _as_dict(obj: Any) -> dict[str, Any]:
+    """Coerce obj to dict[str, Any] safely."""
+    if isinstance(obj, dict):
+        return cast(dict[str, Any], obj)
+    if isinstance(obj, Mapping):
+        try:
+            return {str(k): v for k, v in cast(Mapping[Any, Any], obj).items()}
+        except Exception:
+            return dict[str, Any]()
+    return dict[str, Any]()
 
 
 class _MessagesConfig:
@@ -39,30 +48,27 @@ class _MessagesConfig:
 
 
 class MessageOrchestrator(LoggerMixin):
-    """
-    Orchestrator for localized messages.
+    """Orchestrator for localized messages and structured emissions."""
 
-    Provides translation and structured emission helpers for other
-    orchestrators, binding common context (service, locale).
-    """
+    def __init__(self, config_manager: ConfigManager, logger_manager: LoggerManager | None = None) -> None:
+        self.config_manager = config_manager
 
-    def __init__(
-        self,
-        cfg_mgr: ConfigManager,
-        logger_manager: LoggerManager | None = None,
-    ) -> None:
-        self.cfg_mgr = cfg_mgr
-        raw = cfg_mgr.raw.get("orchestrators", {}).get(CFG_SECTION, {})  # type: ignore[union-attr]
-        self.cfg = _MessagesConfig(raw if isinstance(raw, dict) else {})
-        self.lm = logger_manager or build_logger_manager(cfg_mgr.build_logger_settings())
+        # Resolve raw config safely to dict[str, Any]
+        raw_root = _as_dict(getattr(config_manager, "raw", {}))
+        orch = _as_dict(raw_root.get("orchestrators", {}))
+        raw_cfg: dict[str, Any] = _as_dict(orch.get(CFG_SECTION, {}))
+        self.cfg = _MessagesConfig(raw_cfg)
+
+        self.lm = logger_manager or build_logger_manager(config_manager.build_logger_settings())
         self.lm.configure()
-        self.LOGGER_NAME = LOGGER_NAME  # for LoggerMixin
-        self._init_logger(self.lm)
+        self.LOGGER_NAME = LOGGER_NAME
+        self._init_logger(cast(Any, self.lm))
+        self.log: Any = getattr(self, "log", None)
 
-        locales_root = Path(self.cfg_mgr.project_root) / self.cfg.locales_dir
+        locales_root = Path(self.config_manager.project_root) / self.cfg.locales_dir
         self.mm = MessageManager(locales_root, default_locale=self.cfg.locale)
 
-        # Try to bind context if structlog; stdlib logger will ignore bind.
+        # Try structlog-style binding; fallback to stdlib logger
         try:
             self.log = self.lm.get_logger(LOGGER_NAME).bind(  # type: ignore[attr-defined]
                 service=SERVICE_NAME,
@@ -76,27 +82,16 @@ class MessageOrchestrator(LoggerMixin):
         return self.mm.msg(domain=domain, key=key, locale=self.cfg.locale, **fields)
 
     def emit(self, domain: str, event: str, level: str = "info", **fields: Any) -> None:
-        """
-        Emit a structured, localized log entry.
-
-        The emitted record contains the technical event key and the
-        localized 'msg' plus additional fields for observability.
-        """
+        """Emit a structured, localized log entry."""
         text = self.translate(domain, event, **fields)
-        payload = {"event": event, "msg": text, "domain": domain, **fields}
-        # stdlib path uses extra_fields; structlog path uses bound context
-        if hasattr(self.log, level):
-            getattr(self.log, level)("event", extra={"extra_fields": payload})
+        payload: dict[str, Any] = {"event": event, "msg": text, "domain": domain, **fields}
+        lg: Any = self.log
+        if hasattr(lg, level):
+            getattr(lg, level)("event", extra={"extra_fields": payload})
 
     def run(self) -> dict[str, Any]:
-        """
-        No-op entrypoint for consistency with other orchestrators.
-
-        It reports discovered .mo availability for configured domains.
-        """
-        mo_dir = (
-            Path(self.cfg_mgr.project_root) / self.cfg.locales_dir / self.cfg.locale / "LC_MESSAGES"
-        )
+        """No-op entrypoint; reports .mo domain availability for observability."""
+        mo_dir = Path(self.config_manager.project_root) / self.cfg.locales_dir / self.cfg.locale / "LC_MESSAGES"
         present = [(d, (mo_dir / f"{d}.mo").exists()) for d in self.cfg.domains]
         self.emit("general", MESSAGES_READY, domains=present)
         return {"domains": present, "locale": self.cfg.locale}
