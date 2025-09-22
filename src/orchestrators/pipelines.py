@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-"""
-Orchestrateur de pipelines: construit et évalue les pipelines déclarés,
-en émettant des événements structurés via un MessageOrchestrator partagé.
-"""
-
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from src.config.schemas import PipelinesConfig
-from src.instrumentation.logger_manager import LoggerManager
-from src.instrumentation.logger_mixin import LoggerMixin
+from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
 from src.instrumentation.messages_taxonomy import (
     PIPELINES_DISABLED,
     PIPELINES_DONE,
@@ -23,7 +17,15 @@ from src.instrumentation.messages_taxonomy import (
 from src.modeling.pipelines.evaluator import PipelineEvaluator
 from src.orchestrators.messages import MessageOrchestrator
 
-# Constantes
+"""
+Orchestrateur des pipelines ML/DL:
+- Filtre les pipelines actifs (enabled + liste active).
+- Délègue l'évaluation à PipelineEvaluator (ML/DL).
+- Émet des événements structurés via MessageOrchestrator.
+"""
+
+
+# Constantes module
 LOGGER_NAME = "mlp.orchestrators.pipelines"
 DOMAIN = "pipelines"
 PIPELINES_DIRNAME = "pipelines"
@@ -32,60 +34,57 @@ KEY_RESULTS = "results"
 
 class PipelineOrchestrator(LoggerMixin):
     """
-    Orchestrateur des pipelines ML.
-
-    - Filtre les pipelines actifs (enabled + active list).
-    - Délègue la construction/évaluation à PipelineEvaluator.
-    - Produit des événements localisés (MessageOrchestrator).
+    Exécute les pipelines déclarés et agrège leurs résultats, avec journalisation et événements. 
+    - La sortie des artefacts est résolue par priorité: out_dir argument > YAML > défaut projet/“pipelines”. 
+    - Le logger est initialisé via un provider conforme à SupportsGetLogger. 
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         cfg: PipelinesConfig,
         project_dir: str,
         random_state: int,
-        logger_manager: LoggerManager | None = None,
+        logger_provider: SupportsGetLogger | None = None,
         out_dir: str | None = None,
-        cfg_mgr: Any | None = None,
         ctx: dict[str, str] | None = None,
     ) -> None:
         self.cfg = cfg
         self.random_state = random_state
         self.ctx = ctx or {}
 
-        # Sortie des artefacts (priorité: arg -> YAML -> défaut)
+        # Résolution du répertoire de sortie
         cfg_out = getattr(self.cfg, "out_dir", None)
-        base_dir = (
-            Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
-        )
-
+        base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
         if out_dir:
             self.out_dir = Path(out_dir)
         elif cfg_out:
             p = Path(cfg_out)
             self.out_dir = p if p.is_absolute() else base_dir / p
         else:
-            self.out_dir = base_dir / PIPELINES_DIR  # constante déjà définie dans ce module
-
+            self.out_dir = base_dir / PIPELINES_DIRNAME
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
         # Logging
         self.LOGGER_NAME = LOGGER_NAME
-        if logger_manager:
-            self._init_logger(logger_manager)
+        if logger_provider:
+            self._init_logger(logger_provider)
 
-        # Messages (injecté par GeneralOrchestrator)
+        # Messages (injecté par l’orchestrateur général)
         self.msg: MessageOrchestrator | None = None
 
     def attach_messages(self, msg: MessageOrchestrator) -> None:
-        """Attache l’émetteur de messages localisés à l’orchestrateur."""
+        """Attache l’émetteur de messages localisés (structlog) pour ce domaine."""
         self.msg = msg
 
     def _filter_active_specs(self) -> list[dict[str, Any]]:
+        """
+        Retourne les spécifications de pipelines à exécuter:
+        - enabled = True
+        - inclus dans la liste 'active' si elle est fournie.
+        """
         active = set(getattr(self.cfg, "active", []) or [])
-        specs = []
+        specs: list[dict[str, Any]] = []
         for spec in self.cfg.pipelines:
-            # Pydantic -> dict
             sdict = spec.model_dump() if hasattr(spec, "model_dump") else dict(spec)
             if not sdict.get("enabled", True):
                 continue
@@ -94,8 +93,12 @@ class PipelineOrchestrator(LoggerMixin):
             specs.append(sdict)
         return specs
 
-    def run(self, X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
-        """Exécute les pipelines actifs et retourne la liste des résultats."""
+    def run(self, x: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
+        """
+        Construit et évalue chaque pipeline actif, en émettant des événements et en renvoyant la synthèse.
+        - x: jeux de caractéristiques
+        - y: cibles
+        """
         if not self.cfg.enabled:
             if self.msg:
                 self.msg.emit(DOMAIN, PIPELINES_DISABLED)
@@ -113,16 +116,15 @@ class PipelineOrchestrator(LoggerMixin):
             out_dir=str(self.out_dir),
             random_state=self.random_state,
             mlflow_enabled=False,
-            logger_manager=getattr(self, "lm", None),
+            logger_manager=None,
         )
 
         for sdict in specs:
             name = sdict.get("name", "pipeline")
-
             if self.msg:
                 self.msg.emit(DOMAIN, PIPELINES_EVAL_START, name=name)
 
-            res = evaluator.evaluate(X, y, sdict, cv_cfg, global_policy)
+            res = evaluator.evaluate(x, y, sdict, cv_cfg, global_policy)
 
             if self.msg:
                 self.msg.emit(
@@ -131,7 +133,6 @@ class PipelineOrchestrator(LoggerMixin):
                     name=res.get("name"),
                     best_score=res.get("best_score"),
                 )
-
             results.append(res)
 
         if self.msg:

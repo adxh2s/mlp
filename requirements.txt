@@ -16,3 +16,4 @@ ruff>=0.12
 mypy>=1.17
 setuptools>=80.0
 lazypredict>=0.2.16
+tensorflow>=2.16,<2.18

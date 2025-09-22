@@ -14,6 +14,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, RobustScaler, StandardScaler
 
+from src.modeling.pipelines.consts import AUTO_KEY
 from src.preprocessing.reducers import ReducersFactory
 from src.preprocessing.selectors import SelectorsFactory
 
@@ -28,14 +29,14 @@ Principes clés:
 - Un imputer de sécurité "pre_pca_imputer" est inséré juste avant la réduction
   pour neutraliser tout NaN résiduel (au cas improbable d’une colonne non capturée).
 - L’estimateur est instancié depuis un type fully-qualified (ex: sklearn.svm.SVC)
-  ou via des aliases courants (svc, random_forest), afin de garantir la présence
+  ou via des alias courants (svc, random_forest), afin de garantir la présence
   d’une méthode predict/decision_function en dernière étape.
 """
+
 
 # =========================
 # Constantes de chaînes
 # =========================
-
 # Étapes de pipeline
 STEP_PREPROCESS = "preprocess"
 STEP_CT = "ct"
@@ -102,28 +103,12 @@ FeatureHasher = getattr(_sk_fe, "FeatureHasher", None)
 TargetEncoder = getattr(_sk_pre, "TargetEncoder", None)
 has_sk_target = TargetEncoder is not None
 
-# Alias de type pour un sélecteur de colonnes
-ColumnSelector = Callable[[pd.DataFrame], list[str]]
+# TypeVar utilitaire
+T = TypeVar("T")
 
 # =========================
 # Helpers de typage sûrs
 # =========================
-
-T = TypeVar("T")
-
-
-def wrap_list(v: T | list[T]) -> list[T]:
-    """Renvoie v si déjà liste, sinon [v], en préservant le type élémentaire T."""
-    if isinstance(v, list):
-        return v
-    return [cast(T, v)]
-
-
-def wrap_list_any(v: Any) -> list[Any]:
-    """Version tolérante pour valeurs Any (YAML/dicts hétérogènes) afin d'éviter Unknown."""
-    return v if isinstance(v, list) else [v]
-
-
 @overload
 def as_str_list(items: None) -> list[str]: ...
 @overload
@@ -192,7 +177,7 @@ class PipelineFactory:
         return OneHotEncoder(**params, sparse_output=False)
 
     @staticmethod
-    def _selector_from_rule(rule: Mapping[str, Any]) -> ColumnSelector:
+    def _selector_from_rule(rule: Mapping[str, Any]) -> Callable[[pd.DataFrame], list[str]]:
         """Construit un sélecteur de colonnes depuis une règle, toujours un callable ColumnSelector."""
         if "include" in rule:
             include_cols: list[str] = as_str_list(rule.get("include"))
@@ -227,11 +212,14 @@ class PipelineFactory:
         local = as_mapping(local_num)
         fallback = as_mapping(fallback_num)
         steps: list[tuple[str, Any]] = []
+
         imputer_flag = local.get(IMPUTER_KEY, fallback.get(IMPUTER_KEY))
         if str(imputer_flag) == IMPUTER_SIMPLE:
             steps.append(("imputer", SimpleImputer(strategy="median")))
+
         scaler_name = cast(str | None, local.get(SCALER_KEY, fallback.get(SCALER_KEY, SCALER_AUTO)))
         steps.append(("scaler", cls._build_numeric_scaler(scaler_name)))
+
         return Pipeline(steps) if steps else "passthrough"
 
     @classmethod
@@ -241,9 +229,11 @@ class PipelineFactory:
         """Construit le sous-pipeline catégoriel (imputer + encodeur) selon overrides locaux/politiques globales."""
         merged: dict[str, Any] = {**as_mapping(fallback_cat), **as_mapping(local_cat)}
         steps: list[tuple[str, Any]] = []
+
         imputer_flag = merged.get(IMPUTER_KEY)
         if str(imputer_flag) == IMPUTER_SIMPLE:
             steps.append(("imputer", SimpleImputer(strategy="most_frequent")))
+
         steps.append(("encoder", cls._build_categorical_encoder(merged)))
         return Pipeline(steps) if steps else "passthrough"
 
@@ -310,7 +300,7 @@ class PipelineFactory:
         p = as_mapping(cast(Mapping[str, Any] | None, params))
         grid: dict[str, list[Any]] = {}
         for k, v in p.items():
-            grid[f"{prefix}__{k}"] = wrap_list_any(v)
+            grid[f"{prefix}__{k}"] = v if isinstance(v, list) else [v]
         return grid
 
     @staticmethod
@@ -371,6 +361,7 @@ class PipelineFactory:
             hasattr(model, "predict") or hasattr(model, "decision_function")
         ):
             raise TypeError(MSG_NO_PREDICT.format(cls=type(model).__name__))
+
         return model
 
     @classmethod
@@ -385,7 +376,6 @@ class PipelineFactory:
         - Les distributions sont destinées à Randomized/HalvingRandom.
         """
         steps_cfg = as_mapping(cast(Mapping[str, Any] | None, spec.get(STEPS_KEY)))
-
         steps: list[tuple[str, Any]] = []
 
         # ColumnTransformer (toujours en premier si présent)
@@ -406,13 +396,13 @@ class PipelineFactory:
             reducer = ReducersFactory.from_spec(red)
             steps.append((STEP_REDUCTION, reducer))
 
-        # Estimateur
+        # Estimateur (skippé si AutoML configuré)
         est = as_mapping(cast(Mapping[str, Any] | None, steps_cfg.get(STEP_ESTIMATOR)))
         model = None
-        if not as_mapping(cast(Mapping[str, Any] | None, spec.get("automl"))):
+        if not as_mapping(cast(Mapping[str, Any] | None, spec.get(AUTO_KEY))):
             model = cls._instantiate_estimator(est)
-            if model is not None:
-                steps.append((STEP_ESTIMATOR, model))
+        if model is not None:
+            steps.append((STEP_ESTIMATOR, model))
 
         pipe = Pipeline(steps=[s for s in steps if s[1] is not None])
 
