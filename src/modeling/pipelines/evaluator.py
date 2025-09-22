@@ -9,9 +9,8 @@ from typing import Any, Callable, Literal, Protocol, Union, cast
 import pandas as pd
 import sklearn.model_selection as sk_ms
 from sklearn import metrics as sk_metrics
-from sklearn.experimental import (
-    enable_halving_search_cv as _enable_halving_search_cv,  # type: ignore[reportUnusedImport]
-)
+from sklearn.experimental import enable_halving_search_cv as _enable_halving_search_cv  # type: ignore[reportUnusedImport]
+from sklearn.metrics import get_scorer
 from sklearn.pipeline import Pipeline
 
 from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
@@ -24,8 +23,7 @@ except Exception:  # noqa: BLE001
     TPOTClassifierType = None  # type: ignore[assignment]
 
 try:
-    from dask.distributed import Client as DaskClient  # type: ignore[import]
-    from dask.distributed import LocalCluster as DaskLocalCluster
+    from dask.distributed import Client as DaskClient, LocalCluster as DaskLocalCluster  # type: ignore[import]
 except Exception:  # noqa: BLE001
     DaskClient = None  # type: ignore[assignment]
     DaskLocalCluster = None  # type: ignore[assignment]
@@ -168,7 +166,7 @@ def _safe_close(obj: Any, warn: Callable[[str], None], what: str) -> None:
     try:
         meth = getattr(obj, "close", None)
         if callable(meth):
-            _ = meth()  # peut retourner un awaitable selon l'implémentation, on l'ignore volontairement
+            _ = meth()  # peut retourner un awaitable; on ignore le retour volontairement
     except Exception as exc:  # noqa: BLE001
         warn(f"Fermeture {what} a échoué: {exc}")
 
@@ -596,7 +594,27 @@ class PipelineEvaluator(LoggerMixin):
                 except Exception as exc:  # noqa: BLE001
                     self._warn(f"{self.MSG_EXPORT_FAIL}{exc}")
 
-            best = float(tpot.score(x, y))  # type: ignore[attr-defined]
+            # Calcul du score robuste (TPOT1: score; TPOT2: pipeline + scorer)
+            scoring_raw = tcfg.get(self.K_TPOT_SCORING, self.C_DEFAULT_REFIT)
+            scoring_name = (
+                self.V_F1_WEIGHTED
+                if isinstance(scoring_raw, str) and scoring_raw.lower() in ("f1", self.V_F1_WEIGHTED)
+                else (str(scoring_raw) if isinstance(scoring_raw, str) else self.V_F1_WEIGHTED)
+            )
+            if hasattr(tpot, "score"):
+                best = float(tpot.score(x, y))  # type: ignore[attr-defined]
+            else:
+                pipe_for_score: Any = getattr(tpot, "fitted_pipeline_", None)
+                if pipe_for_score is None:
+                    best = 0.0
+                else:
+                    try:
+                        scorer = get_scorer(scoring_name)
+                        best = float(scorer(pipe_for_score, x, y))
+                    except Exception:
+                        y_pred = pipe_for_score.predict(x)
+                        best = float(sk_metrics.f1_score(y, y_pred, average="weighted"))
+
             return {
                 "name": automl.get(self.K_AUTOML_NAME, self.V_LIB_TPOT),
                 "best_score": best,

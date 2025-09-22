@@ -4,7 +4,7 @@ package: orchestrators.pipelines
 enabled: true
 out_dir: "outputs/mlp/pipelines_cv"
 
-active: ["tpot_auto"]
+active: ["svc_random"]
 
 # Configuration de la recherche d’hyperparamètres (déclarative)
 cv:
@@ -87,7 +87,7 @@ pipelines:
 
   # SVC RBF en Randomized/HalvingRandom: même logique de CT avec imputation interne
   - name: svc_random
-    enabled: false
+    enabled: true
     steps:
       preprocess:
         enabled: true
@@ -112,7 +112,7 @@ pipelines:
 
   # AutoML exécuté comme un pipeline supplémentaire (TPOT)
   - name: tpot_auto
-    enabled: true
+    enabled: false
     steps: {}
     automl:
       library: tpot
