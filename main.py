@@ -21,14 +21,14 @@ def main(cfg: DictConfig) -> None:
     lm = app.logger_manager
     msg = app.message_orchestrator
 
-    log = lm.get_logger("__main__")
+    lm.get_logger("__main__")
 
     # 2) Dump de contrôle de la config Hydra résolue (switches + params clés)
     #    Utile pour vérifier que les enabled et target_column/out_dir sont bien pris.
     resolved = OmegaConf.to_container(cfg, resolve=True)
-    orch = (resolved.get("orchestrators") or {})
-    data_cfg = (orch.get("data") or {})
-    pipes_cfg = (orch.get("pipelines") or {})
+    orch = resolved.get("orchestrators") or {}
+    data_cfg = orch.get("data") or {}
+    pipes_cfg = orch.get("pipelines") or {}
 
     msg.emit(
         "app",

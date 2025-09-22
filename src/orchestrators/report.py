@@ -5,7 +5,7 @@ Report orchestrator: render consolidated reports and emit events.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.config.schemas import AppConfig, ReportConfig
 from src.datavisualization.report_renderer import ReportRenderer
@@ -30,7 +30,7 @@ class ReportOrchestrator(LoggerMixin):
         project_dir: str,
         app_cfg: AppConfig,
         lm: LoggerManager,
-        ctx: Optional[dict[str, str]] = None,
+        ctx: dict[str, str] | None = None,
     ) -> None:
         """
         Initialize report orchestrator.
@@ -57,13 +57,13 @@ class ReportOrchestrator(LoggerMixin):
         self.LOGGER_NAME = LOGGER_NAME
         self._init_logger(lm)
 
-        self.msg: Optional[MessageOrchestrator] = None  # may be injected
+        self.msg: MessageOrchestrator | None = None  # may be injected
 
     def attach_messages(self, msg: MessageOrchestrator) -> None:
         """Attach a MessageOrchestrator for localized emissions."""
         self.msg = msg
 
-    def run(self, eda_payload: Dict[str, Any], pipe_payload: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, eda_payload: dict[str, Any], pipe_payload: dict[str, Any]) -> dict[str, Any]:
         """Render reports and return artifact metadata."""
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_START, out_dir=self.out_dir)
@@ -81,6 +81,8 @@ class ReportOrchestrator(LoggerMixin):
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_DONE, artifacts=out.get("artifacts"))
         else:
-            self.log.info("report_done", extra={"extra_fields": {"artifacts": out.get("artifacts")}})
+            self.log.info(
+                "report_done", extra={"extra_fields": {"artifacts": out.get("artifacts")}}
+            )
 
         return out

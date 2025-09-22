@@ -6,7 +6,7 @@ Data orchestrator: analyze and prepare data for downstream modeling.
 """
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -14,11 +14,11 @@ from src.config.schemas import DataConfig
 from src.instrumentation.data_manager import DataManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.messages_taxonomy import (
-    DATA_INIT,
-    DATA_PROCESSING_START,
     DATA_ANALYSIS_COMPLETE,
+    DATA_INIT,
     DATA_PROCESSING_COMPLETE,
     DATA_PROCESSING_FAILED,
+    DATA_PROCESSING_START,
 )
 from src.orchestrators.messages import MessageOrchestrator
 
@@ -43,10 +43,13 @@ class DataOrchestrator(LoggerMixin):
             self._init_logger(self.lm)
         else:
             import logging
+
             self.log = logging.getLogger(LOGGER_NAME)
 
         # Passer la config Pydantic en dict au DataManager
-        cfg_dict = self.cfg.model_dump() if hasattr(self.cfg, "model_dump") else dict(self.cfg or {})
+        cfg_dict = (
+            self.cfg.model_dump() if hasattr(self.cfg, "model_dump") else dict(self.cfg or {})
+        )
         self.data_manager = DataManager(cfg_dict)
 
         self.msg: MessageOrchestrator | None = None
@@ -82,10 +85,12 @@ class DataOrchestrator(LoggerMixin):
         if isinstance(raw_data, (str, Path)):
             return DataManager.load_csv(Path(raw_data).resolve(), encoding=encoding, sep=sep)
         if isinstance(raw_data, dict) and "path" in raw_data:
-            return DataManager.load_csv(Path(raw_data["path"]).resolve(), encoding=encoding, sep=sep)
+            return DataManager.load_csv(
+                Path(raw_data["path"]).resolve(), encoding=encoding, sep=sep
+            )
         raise ValueError("raw_data must be a DataFrame, a path, or a dict containing 'path'")
 
-    def process_data(self, raw_data: Any) -> tuple[pd.DataFrame, Optional[pd.Series]]:
+    def process_data(self, raw_data: Any) -> tuple[pd.DataFrame, pd.Series | None]:
         """Charge → analyse → prépare (clean/split/validate) → retourne X,y."""
         if self.msg:
             self.msg.emit(DOMAIN, DATA_PROCESSING_START)
@@ -94,7 +99,9 @@ class DataOrchestrator(LoggerMixin):
 
         try:
             # 1) Charger avec encodage/séparateur de la config
-            df = self._load_df_from_payload(raw_data, getattr(self.cfg, "encoding", None), getattr(self.cfg, "sep", None))
+            df = self._load_df_from_payload(
+                raw_data, getattr(self.cfg, "encoding", None), getattr(self.cfg, "sep", None)
+            )
 
             # 2) Analyse
             analysis = self.analyze_df(df)
@@ -122,7 +129,9 @@ class DataOrchestrator(LoggerMixin):
             if self.msg:
                 self.msg.emit(DOMAIN, DATA_PROCESSING_FAILED, level="error", error=str(exc))
             else:
-                self.log.error("data_processing_failed", extra={"extra_fields": {"error": str(exc)}})
+                self.log.error(
+                    "data_processing_failed", extra={"extra_fields": {"error": str(exc)}}
+                )
             raise
 
     def run(self, raw_data: Any) -> dict[str, Any]:

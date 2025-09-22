@@ -25,7 +25,9 @@ class DataManager:
     # ---------- IO helpers ----------
 
     @staticmethod
-    def load_csv(path: Path, encoding: str | None = None, sep: str | None = None, **kwargs) -> pd.DataFrame:
+    def load_csv(
+        path: Path, encoding: str | None = None, sep: str | None = None, **kwargs
+    ) -> pd.DataFrame:
         """Charger un CSV avec encodage/séparateur optionnels."""
         if encoding is not None:
             kwargs["encoding"] = encoding
@@ -65,7 +67,6 @@ class DataManager:
                 return col
         return None
 
-
     def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply data cleaning: duplicates, missing values, outliers."""
         df_clean = df.copy()
@@ -97,7 +98,6 @@ class DataManager:
 
         return df_clean
 
-
     def infer_column_types(self, df: pd.DataFrame) -> dict[str, str]:
         """Infer optimal data types for each column."""
         type_map: dict[str, str] = {}
@@ -109,7 +109,9 @@ class DataManager:
                 continue
             unique_ratio = df[col].nunique(dropna=True) / max(n, 1)
             if str(df[col].dtype) in self.NUMERIC_TYPES:
-                type_map[col] = "categorical" if unique_ratio < self.CATEGORICAL_THRESHOLD else "numeric"
+                type_map[col] = (
+                    "categorical" if unique_ratio < self.CATEGORICAL_THRESHOLD else "numeric"
+                )
             else:
                 type_map[col] = "categorical"
         return type_map

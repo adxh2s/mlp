@@ -15,7 +15,9 @@ class MessageManager:
     def translator(self, domain: str, locale: str | None = None) -> Callable[[str], str]:
         loc = locale or self._default_locale
         try:
-            t = gettext.translation(domain=domain, localedir=str(self._locales_dir), languages=[loc])
+            t = gettext.translation(
+                domain=domain, localedir=str(self._locales_dir), languages=[loc]
+            )
             return t.gettext
         except Exception:
             return lambda s: s

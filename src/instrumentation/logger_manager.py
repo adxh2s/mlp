@@ -8,12 +8,13 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import numpy as np  # type: ignore
 except Exception:
     np = None  # type: ignore
+
 
 def _json_default(o: Any) -> Any:
     if np is not None:
@@ -27,12 +28,21 @@ def _json_default(o: Any) -> Any:
         if isinstance(o, (np.ndarray,)):  # type: ignore[attr-defined]
             return o.tolist()
     if isinstance(o, (datetime, date)):
-        return (o if isinstance(o, datetime) and o.tzinfo else datetime.fromtimestamp(o.timestamp(), tz=timezone.utc)).isoformat() if isinstance(o, datetime) else o.isoformat()
+        return (
+            (
+                o
+                if isinstance(o, datetime) and o.tzinfo
+                else datetime.fromtimestamp(o.timestamp(), tz=timezone.utc)
+            ).isoformat()
+            if isinstance(o, datetime)
+            else o.isoformat()
+        )
     if isinstance(o, Path):
         return str(o)
     if isinstance(o, set):
         return list(o)
     return str(o)
+
 
 class JsonFormatter(logging.Formatter):
     KEY_TIMESTAMP: str = "timestamp"
@@ -48,7 +58,7 @@ class JsonFormatter(logging.Formatter):
     KEY_EXTRA: str = "extra_fields"
 
     def format(self, record: logging.LogRecord) -> str:
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             self.KEY_TIMESTAMP: datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             self.KEY_LEVEL: record.levelname.lower(),
             self.KEY_LOGGER: record.name,
@@ -69,8 +79,6 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, default=_json_default)
 
 
-
-
 @dataclass
 class LoggerBaseConfig:
     """Common logger config loaded from ConfigManager."""
@@ -78,11 +86,11 @@ class LoggerBaseConfig:
     app_name: str = "mlp"
     level: str = "INFO"
     json_mode: bool = False
-    file_path: Optional[str] = None
+    file_path: str | None = None
     file_max_bytes: int = 5 * 1024 * 1024
     file_backup_count: int = 3
     uvicorn_noise_filter: bool = True
-    default_fields: Dict[str, Any] = field(default_factory=dict)
+    default_fields: dict[str, Any] = field(default_factory=dict)
 
 
 class LoggerManager:
@@ -100,10 +108,10 @@ class LoggerManager:
         self.cfg = cfg
         self._configured = False
 
-    def _build_dict_config(self) -> Dict[str, Any]:
+    def _build_dict_config(self) -> dict[str, Any]:
         """Build a dictConfig mapping for logging.config.dictConfig."""
-        formatters: Dict[str, Any] = {}
-        handlers: Dict[str, Any] = {}
+        formatters: dict[str, Any] = {}
+        handlers: dict[str, Any] = {}
         root_handlers: list[str] = []
 
         if self.cfg.json_mode:
@@ -143,7 +151,7 @@ class LoggerManager:
             }
             root_handlers.append(self.HANDLER_FILE)
 
-        loggers_overrides: Dict[str, Any] = {}
+        loggers_overrides: dict[str, Any] = {}
         if self.cfg.uvicorn_noise_filter:
             loggers_overrides.update(
                 {
@@ -172,7 +180,7 @@ class LoggerManager:
             logging.getLogger().addFilter(self._default_fields_filter(self.cfg.default_fields))
 
     @staticmethod
-    def _default_fields_filter(common: Dict[str, Any]) -> logging.Filter:
+    def _default_fields_filter(common: dict[str, Any]) -> logging.Filter:
         """Attach default extra fields to all log records."""
 
         class _DefaultFields(logging.Filter):
@@ -190,7 +198,7 @@ class LoggerManager:
 
         return _DefaultFields()
 
-    def get_logger(self, name: Optional[str] = None) -> logging.Logger:
+    def get_logger(self, name: str | None = None) -> logging.Logger:
         """Return a stdlib logger, configuring on first use."""
         if not self._configured:
             self.configure()

@@ -157,20 +157,17 @@ class MLPStreamlitApp:
         )
 
         # UI MessageManager uses messages orchestrator locale/dir
-        locales_dir = (
-            Path(self.cfg_orch.get_config_manager().project_root)
-            / cast(
-                str,
-                cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {})).get(
-                    "messages", {}
-                ).get("locales_dir", "i18n/locales"),
-            )
+        locales_dir = Path(self.cfg_orch.get_config_manager().project_root) / cast(
+            str,
+            cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {}))
+            .get("messages", {})
+            .get("locales_dir", "i18n/locales"),
         )
         default_locale = cast(
             str,
-            cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {})).get(
-                "messages", {}
-            ).get("locale", "fr"),
+            cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {}))
+            .get("messages", {})
+            .get("locale", "fr"),
         )
         self.ui_mm = MessageManager(locales_dir, default_locale=default_locale)  # type: ignore[arg-type]
 

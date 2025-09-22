@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 try:
     import yaml  # pip install pyyaml
@@ -91,14 +91,14 @@ def is_file_name(name: str) -> bool:
     return has_dot
 
 
-def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+def load_permissions_overrides(struct: dict[str, Any]) -> dict[str, dict[str, int]]:
     perms = struct.get("permissions", {}) or {}
-    file_map_raw = perms.get("files") or {}
-    dir_map_raw = perms.get("dirs") or {}
+    perms.get("files") or {}
+    perms.get("dirs") or {}
 
 
-def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
-    out: Dict[str, int] = {}
+def norm_map(d: dict[str, Any]) -> dict[str, int]:
+    out: dict[str, int] = {}
     for k, v in d.items():
         try:
             out[k] = norm_mode(v)
@@ -114,7 +114,7 @@ def norm_map(d: Dict[str, Any]) -> Dict[str, int]:
     return {"files": file_map, "dirs": dir_map}
 
 
-def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
+def pick_mode_for_dir(path: Path, overrides: dict[str, int]) -> int:
     for pattern, mode in overrides.items():
         if path.match(pattern):
             log(f"DIR MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
@@ -124,7 +124,7 @@ def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
     return DIR_MODE_DEFAULT
 
 
-def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
+def pick_mode_for_file(path: Path, overrides: dict[str, int]) -> int:
     for pattern, mode in overrides.items():
         if path.match(pattern):
             log(f"FILE MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
@@ -142,10 +142,10 @@ def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
 
 def ensure_children(
     base: Path,
-    children: Dict[str, Any],
-    created: Dict[str, list],
-    file_perm_over: Dict[str, int],
-    dir_perm_over: Dict[str, int],
+    children: dict[str, Any],
+    created: dict[str, list],
+    file_perm_over: dict[str, int],
+    dir_perm_over: dict[str, int],
 ) -> None:
     if not isinstance(children, dict):
         log(f"CHILDREN WARN at {base}: expected dict, got {type(children)}")
@@ -213,7 +213,7 @@ def process_root_structure(struct: dict[str, Any], root: Path) -> dict[str, list
             created["dirs"].append(str(dir_path))
 
             if isinstance(meta, dict):
-                for maybe_name, maybe_node in meta.items():
+                for maybe_name, _maybe_node in meta.items():
                     if maybe_name == "children":
                         continue
                     if is_file_name(maybe_name):

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import streamlit as st
 
@@ -15,8 +14,8 @@ def get_project_root(outputs_dir: str, project_name: str) -> Path:
 
 
 @st.cache_data
-def list_artifacts(rep_path: Path, exts: List[str]) -> List[Path]:
-    found: List[Path] = []
+def list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
+    found: list[Path] = []
     for ext in exts:
         found.extend(rep_path.glob(f"*{ext}"))
     return sorted(found)

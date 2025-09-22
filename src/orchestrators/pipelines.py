@@ -6,7 +6,7 @@ en émettant des événements structurés via un MessageOrchestrator partagé.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -44,10 +44,10 @@ class PipelineOrchestrator(LoggerMixin):
         cfg: PipelinesConfig,
         project_dir: str,
         random_state: int,
-        logger_manager: Optional[LoggerManager] = None,
-        out_dir: Optional[str] = None,
-        cfg_mgr: Optional[Any] = None,
-        ctx: Optional[dict[str, str]] = None,
+        logger_manager: LoggerManager | None = None,
+        out_dir: str | None = None,
+        cfg_mgr: Any | None = None,
+        ctx: dict[str, str] | None = None,
     ) -> None:
         self.cfg = cfg
         self.random_state = random_state
@@ -55,7 +55,9 @@ class PipelineOrchestrator(LoggerMixin):
 
         # Sortie des artefacts (priorité: arg -> YAML -> défaut)
         cfg_out = getattr(self.cfg, "out_dir", None)
-        base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
+        base_dir = (
+            Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
+        )
 
         if out_dir:
             self.out_dir = Path(out_dir)
@@ -67,20 +69,19 @@ class PipelineOrchestrator(LoggerMixin):
 
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
-
         # Logging
         self.LOGGER_NAME = LOGGER_NAME
         if logger_manager:
             self._init_logger(logger_manager)
 
         # Messages (injecté par GeneralOrchestrator)
-        self.msg: Optional[MessageOrchestrator] = None
+        self.msg: MessageOrchestrator | None = None
 
     def attach_messages(self, msg: MessageOrchestrator) -> None:
         """Attache l’émetteur de messages localisés à l’orchestrateur."""
         self.msg = msg
 
-    def _filter_active_specs(self) -> List[Dict[str, Any]]:
+    def _filter_active_specs(self) -> list[dict[str, Any]]:
         active = set(getattr(self.cfg, "active", []) or [])
         specs = []
         for spec in self.cfg.pipelines:
@@ -93,7 +94,7 @@ class PipelineOrchestrator(LoggerMixin):
             specs.append(sdict)
         return specs
 
-    def run(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, Any]:
+    def run(self, X: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
         """Exécute les pipelines actifs et retourne la liste des résultats."""
         if not self.cfg.enabled:
             if self.msg:
@@ -104,7 +105,7 @@ class PipelineOrchestrator(LoggerMixin):
         if self.msg:
             self.msg.emit(DOMAIN, PIPELINES_START, out_dir=str(self.out_dir), count=len(specs))
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         cv_cfg = getattr(self.cfg, "cv", {}) or {}
         global_policy = getattr(self.cfg, "policy", {}) or {}
 
@@ -124,7 +125,12 @@ class PipelineOrchestrator(LoggerMixin):
             res = evaluator.evaluate(X, y, sdict, cv_cfg, global_policy)
 
             if self.msg:
-                self.msg.emit(DOMAIN, PIPELINES_EVAL_DONE, name=res.get("name"), best_score=res.get("best_score"))
+                self.msg.emit(
+                    DOMAIN,
+                    PIPELINES_EVAL_DONE,
+                    name=res.get("name"),
+                    best_score=res.get("best_score"),
+                )
 
             results.append(res)
 

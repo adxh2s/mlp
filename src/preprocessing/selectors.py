@@ -37,9 +37,7 @@ class SelectorsFactory:
             SelectorsFactory.KEY_VARIANCE_THRESHOLD in cfg
             and cfg[SelectorsFactory.KEY_VARIANCE_THRESHOLD] is not None
         ):
-            return VarianceThreshold(
-                threshold=cfg[SelectorsFactory.KEY_VARIANCE_THRESHOLD]
-            )
+            return VarianceThreshold(threshold=cfg[SelectorsFactory.KEY_VARIANCE_THRESHOLD])
 
         if SelectorsFactory.KEY_SELECT_K_BEST in cfg:
             return SelectKBest(score_func=F_CLASSIF, k=cfg[SelectorsFactory.KEY_SELECT_K_BEST])
@@ -52,12 +50,10 @@ class SelectorsFactory:
 
         return SelectorsFactory.PASSTHROUGH
 
-
     @staticmethod
     def from_spec(cfg: dict[str, Any] | None):
         """Alias kept for symmetry with other factories."""
         return SelectorsFactory.make_selector(cfg)
-
 
     @staticmethod
     def instantiate_estimator(cfg: dict[str, Any] | None):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import logging.config
 from pathlib import Path
-from typing import Optional
 
 from .logger_manager import LoggerBaseConfig, LoggerManager
 
@@ -102,7 +101,7 @@ class StructlogLoggerManager(LoggerManager):
             # Fallback: stdlib configuration
             super().configure()
 
-    def get_logger(self, name: Optional[str] = None):
+    def get_logger(self, name: str | None = None):
         """Return a structlog logger if available, stdlib otherwise."""
         if not self._configured:
             self.configure()

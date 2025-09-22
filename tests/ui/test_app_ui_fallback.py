@@ -79,6 +79,4 @@ def test_ui_fallback_without_mo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     # Assert (avoid bare assert due to Ruff S101)
     expected = "mlp — Console (Programmatic Routing)"
     if title != expected:
-        raise AssertionError(
-            f'Expected default fallback title "{expected}", got "{title}"'
-        )
+        raise AssertionError(f'Expected default fallback title "{expected}", got "{title}"')

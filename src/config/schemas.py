@@ -59,6 +59,7 @@ class FileConfig(BaseModel):
     save_input_file: bool = True
     save_input_file_compression: bool = False
 
+
 class DataConfig(BaseModel):
     """Configuration for data processing orchestrator."""
 

@@ -10,7 +10,7 @@ File orchestrator: locate, optionally persist, and load input files.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from hydra.utils import get_original_cwd
 
@@ -18,7 +18,12 @@ from src.config.schemas import FileConfig as FileConfigModel
 from src.instrumentation.file_manager import FileManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import FILE_INIT, INPUT_FOUND, INPUT_PROCESSED, NO_INPUT_FILE
+from src.instrumentation.messages_taxonomy import (
+    FILE_INIT,
+    INPUT_FOUND,
+    INPUT_PROCESSED,
+    NO_INPUT_FILE,
+)
 from src.orchestrators.messages import MessageOrchestrator
 
 LOGGER_NAME = "mlp.orchestrators.file"
@@ -47,7 +52,12 @@ class FileConfig:
 class FileOrchestrator(LoggerMixin):
     """Locate, optionally persist, and load input files for downstream tasks."""
 
-    def __init__(self, cfg: FileConfigModel | FileConfig, logger_manager: Optional[LoggerManager] = None, ctx: Optional[dict[str, str]] = None) -> None:
+    def __init__(
+        self,
+        cfg: FileConfigModel | FileConfig,
+        logger_manager: LoggerManager | None = None,
+        ctx: dict[str, str] | None = None,
+    ) -> None:
         # Normalize config
         if hasattr(cfg, "model_dump"):
             d = cfg.model_dump()
@@ -67,7 +77,7 @@ class FileOrchestrator(LoggerMixin):
 
             self.log = logging.getLogger(LOGGER_NAME)
 
-        self.msg: Optional[MessageOrchestrator] = None
+        self.msg: MessageOrchestrator | None = None
 
         # Pre-resolve dirs (prefer ctx)
         if self.ctx:
@@ -75,13 +85,23 @@ class FileOrchestrator(LoggerMixin):
             self.out_dir = Path(self.ctx["data_out"])
         else:
             data_root = Path(self.cfg.data_dir).expanduser().resolve()
-            self.in_dir = (Path(self.cfg.in_dir).resolve() if Path(self.cfg.in_dir).is_absolute() else (data_root / self.cfg.in_dir).resolve())
-            self.out_dir = (Path(self.cfg.out_dir).resolve() if Path(self.cfg.out_dir).is_absolute() else (data_root / self.cfg.out_dir).resolve())
+            self.in_dir = (
+                Path(self.cfg.in_dir).resolve()
+                if Path(self.cfg.in_dir).is_absolute()
+                else (data_root / self.cfg.in_dir).resolve()
+            )
+            self.out_dir = (
+                Path(self.cfg.out_dir).resolve()
+                if Path(self.cfg.out_dir).is_absolute()
+                else (data_root / self.cfg.out_dir).resolve()
+            )
         self.fm.ensure_dir(self.in_dir)
         self.fm.ensure_dir(self.out_dir)
 
     @classmethod
-    def from_cfg_mgr(cls, cfg_mgr, logger_manager: Optional[LoggerManager] = None, ctx: Optional[dict[str, str]] = None) -> "FileOrchestrator":
+    def from_cfg_mgr(
+        cls, cfg_mgr, logger_manager: LoggerManager | None = None, ctx: dict[str, str] | None = None
+    ) -> FileOrchestrator:
         cfg = cfg_mgr.model.orchestrators.file
         return cls(cfg, logger_manager=logger_manager, ctx=ctx)
 
@@ -99,9 +119,24 @@ class FileOrchestrator(LoggerMixin):
 
     def process_input(self) -> dict[str, Any]:
         if self.msg:
-            self.msg.emit(DOMAIN, FILE_INIT, data_dir=self.cfg.data_dir, in_dir=self.cfg.in_dir, out_dir=self.cfg.out_dir)
+            self.msg.emit(
+                DOMAIN,
+                FILE_INIT,
+                data_dir=self.cfg.data_dir,
+                in_dir=self.cfg.in_dir,
+                out_dir=self.cfg.out_dir,
+            )
         else:
-            self.log.info("file_init", extra={"extra_fields": {"data_dir": self.cfg.data_dir, "in_dir": self.cfg.in_dir, "out_dir": self.cfg.out_dir}})
+            self.log.info(
+                "file_init",
+                extra={
+                    "extra_fields": {
+                        "data_dir": self.cfg.data_dir,
+                        "in_dir": self.cfg.in_dir,
+                        "out_dir": self.cfg.out_dir,
+                    }
+                },
+            )
 
         if not self.ctx:
             root = Path(get_original_cwd())
@@ -111,29 +146,50 @@ class FileOrchestrator(LoggerMixin):
             self.out_dir.mkdir(parents=True, exist_ok=True)
 
         if self.msg:
-            self.msg.emit(DOMAIN, "file_paths_resolved", in_dir=str(self.in_dir), out_dir=str(self.out_dir))
+            self.msg.emit(
+                DOMAIN, "file_paths_resolved", in_dir=str(self.in_dir), out_dir=str(self.out_dir)
+            )
         else:
-            self.log.info("file_paths_resolved", extra={"extra_fields": {"in_dir": str(self.in_dir), "out_dir": str(self.out_dir)}})
+            self.log.info(
+                "file_paths_resolved",
+                extra={"extra_fields": {"in_dir": str(self.in_dir), "out_dir": str(self.out_dir)}},
+            )
 
         if self.msg:
             self.msg.emit(DOMAIN, "file_pick_start", exts=self.cfg.extensions)
         else:
-            self.log.info("file_pick_start", extra={"extra_fields": {"extensions": self.cfg.extensions}})
+            self.log.info(
+                "file_pick_start", extra={"extra_fields": {"extensions": self.cfg.extensions}}
+            )
 
         f = self.pick_input_file()
 
         if f is None:
             if self.msg:
-                self.msg.emit(DOMAIN, NO_INPUT_FILE, in_dir=str(self.in_dir), exts=self.cfg.extensions)
+                self.msg.emit(
+                    DOMAIN, NO_INPUT_FILE, in_dir=str(self.in_dir), exts=self.cfg.extensions
+                )
             else:
-                self.log.info("no_input_file", extra={"extra_fields": {"in_dir": str(self.in_dir), "extensions": self.cfg.extensions}})
+                self.log.info(
+                    "no_input_file",
+                    extra={
+                        "extra_fields": {
+                            "in_dir": str(self.in_dir),
+                            "extensions": self.cfg.extensions,
+                        }
+                    },
+                )
             return {
                 KEY_FOUND: False,
                 KEY_FILE: None,
                 KEY_SAVED: None,
                 KEY_COMPRESSED: None,
                 KEY_DATA: None,
-                KEY_META: {"in_dir": str(self.in_dir), "out_dir": str(self.out_dir), "extensions": self.cfg.extensions},
+                KEY_META: {
+                    "in_dir": str(self.in_dir),
+                    "out_dir": str(self.out_dir),
+                    "extensions": self.cfg.extensions,
+                },
             }
 
         if self.msg:
@@ -153,9 +209,24 @@ class FileOrchestrator(LoggerMixin):
         data = self.fm.read_file(f)
 
         if self.msg:
-            self.msg.emit(DOMAIN, INPUT_PROCESSED, file=str(f), saved=str(saved_path) if saved_path else None, compressed=str(compressed_path) if compressed_path else None)
+            self.msg.emit(
+                DOMAIN,
+                INPUT_PROCESSED,
+                file=str(f),
+                saved=str(saved_path) if saved_path else None,
+                compressed=str(compressed_path) if compressed_path else None,
+            )
         else:
-            self.log.info("input_processed", extra={"extra_fields": {"file": str(f), "saved": str(saved_path) if saved_path else None, "compressed": str(compressed_path) if compressed_path else None}})
+            self.log.info(
+                "input_processed",
+                extra={
+                    "extra_fields": {
+                        "file": str(f),
+                        "saved": str(saved_path) if saved_path else None,
+                        "compressed": str(compressed_path) if compressed_path else None,
+                    }
+                },
+            )
 
         return {
             KEY_FOUND: True,
@@ -163,5 +234,9 @@ class FileOrchestrator(LoggerMixin):
             KEY_SAVED: str(saved_path) if saved_path else None,
             KEY_COMPRESSED: str(compressed_path) if compressed_path else None,
             KEY_DATA: data,
-            KEY_META: {"in_dir": str(self.in_dir), "out_dir": str(self.out_dir), "extensions": self.cfg.extensions},
+            KEY_META: {
+                "in_dir": str(self.in_dir),
+                "out_dir": str(self.out_dir),
+                "extensions": self.cfg.extensions,
+            },
         }

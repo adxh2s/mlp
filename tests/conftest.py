@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import pandas as pd
 import pytest
@@ -62,7 +61,7 @@ def tmp_outputs(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture()
-def demo_dataset() -> Tuple[pd.DataFrame, pd.Series]:
+def demo_dataset() -> tuple[pd.DataFrame, pd.Series]:
     """Small demo dataset (10 rows) for fast tests."""
     import numpy as np
 

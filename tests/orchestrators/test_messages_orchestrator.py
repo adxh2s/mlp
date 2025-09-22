@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import subprocess
@@ -45,7 +44,6 @@ def _compile_mo(po: Path) -> Path:
     if which("msgfmt") is None:
         pytest.skip("msgfmt not available in PATH")
 
-
     subprocess.run(["msgfmt", "-o", str(mo), str(po)], check=True)
     if not mo.exists():
         raise RuntimeError(f"Failed to compile .mo file: {mo}")
@@ -76,7 +74,9 @@ def _build_cfg(locales_dir: str, domains: list[str]) -> Any:
     return OmegaConf.create(base)
 
 
-def test_message_orchestrator_translate_and_emit(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_message_orchestrator_translate_and_emit(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Arrange: create minimal PO/MO for "general" domain
     po = _write_po(tmp_path, "general")
     _compile_mo(po)
@@ -108,7 +108,9 @@ def test_message_orchestrator_translate_and_emit(tmp_path: Path, capsys: pytest.
         raise AssertionError('"Événement de test 123" not found in output')
 
 
-def test_message_orchestrator_missing_domain_graceful(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_message_orchestrator_missing_domain_graceful(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # Arrange: no PO/MO present for "unknown" domain; fallback should return key
     cfg = _build_cfg(locales_dir="i18n/locales", domains=["unknown"])
     cfg_mgr = ConfigManager(cfg)

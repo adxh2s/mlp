@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional, Protocol
+from typing import Protocol
 
 
 class SupportsGetLogger(Protocol):
     """Protocol for objects exposing get_logger(name)->logger."""
 
-    def get_logger(self, name: Optional[str] = None):
+    def get_logger(self, name: str | None = None):
         """Return a logger instance (stdlib or structlog-compatible)."""
         ...
 

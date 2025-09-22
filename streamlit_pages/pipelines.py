@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import pandas as pd
 import streamlit as st
@@ -21,7 +20,7 @@ def get_project_root(outputs_dir: str, project_name: str) -> Path:
 
 
 @st.cache_data
-def list_cv_results(pipes_path: Path) -> List[Path]:
+def list_cv_results(pipes_path: Path) -> list[Path]:
     return sorted(pipes_path.glob("cv_*.csv"))
 
 

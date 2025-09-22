@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-"""
-App orchestrator: bootstrap logging and configuration, and build a Hydra-safe
-project context (ctx) consumed by downstream orchestrators.
-"""
-
 from pathlib import Path
 
 from hydra.utils import get_original_cwd
@@ -15,6 +10,11 @@ from src.instrumentation.logger_manager import LoggerManager
 from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
 from src.orchestrators.messages import MessageOrchestrator
+
+"""
+App orchestrator: bootstrap logging and configuration, and build a Hydra-safe
+project context (ctx) consumed by downstream orchestrators.
+"""
 
 
 class AppOrchestrator:
@@ -34,11 +34,15 @@ class AppOrchestrator:
         self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
 
         # 3) Config orchestrator: validate and expose AppConfig + messages
-        self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        self.config_orchestrator = ConfigOrchestrator(
+            self.config_manager, logger_manager=self.logger_manager
+        )
         app_cfg = self.config_orchestrator.get_app_config()
 
         # 4) Messages (shared) for downstream orchestrators
-        self.message_orchestrator = MessageOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        self.message_orchestrator = MessageOrchestrator(
+            self.config_manager, logger_manager=self.logger_manager
+        )
 
         # 5) Build ctx (Hydra-safe absolute paths)
         root = Path(get_original_cwd())
@@ -47,7 +51,12 @@ class AppOrchestrator:
 
         file_cfg = getattr(app_cfg.orchestrators, "file", None)
         if file_cfg is None:
-            self.message_orchestrator.emit("config", "config_section_missing", section="orchestrators.file", used_defaults={"data_dir": "data", "in_dir": "in", "out_dir": "out"})
+            self.message_orchestrator.emit(
+                "config",
+                "config_section_missing",
+                section="orchestrators.file",
+                used_defaults={"data_dir": "data", "in_dir": "in", "out_dir": "out"},
+            )
             data_dir, in_dir, out_dir = "data", "in", "out"
         else:
             data_dir, in_dir, out_dir = file_cfg.data_dir, file_cfg.in_dir, file_cfg.out_dir

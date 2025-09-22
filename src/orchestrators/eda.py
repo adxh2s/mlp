@@ -5,7 +5,7 @@ EDA orchestrator: YData profile and JSON summary with structured logs.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -14,7 +14,7 @@ from src.datanalysis.eda_profile import EDAProfile
 from src.datanalysis.eda_summary import EDASummary
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import EDA_DONE, EDA_ORCHESTRATOR_FAILED, EDA_START
+from src.instrumentation.messages_taxonomy import EDA_DONE, EDA_START
 from src.orchestrators.messages import MessageOrchestrator
 
 # Constants
@@ -52,13 +52,13 @@ class EDAOrchestrator(LoggerMixin):
         # MessageOrchestrator if needed. Here, for simplicity, we build one
         # from lm's config path via an optional pattern. In practice, prefer
         # passing a shared instance from GeneralOrchestrator.
-        self.msg: Optional[MessageOrchestrator] = None  # may be injected
+        self.msg: MessageOrchestrator | None = None  # may be injected
 
     def attach_messages(self, msg: MessageOrchestrator) -> None:
         """Attach a MessageOrchestrator for localized emissions."""
         self.msg = msg
 
-    def run(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> Dict[str, Any]:
+    def run(self, X: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:
         """Execute EDA and return artifacts and summary."""
         n_rows, n_cols = X.shape
 

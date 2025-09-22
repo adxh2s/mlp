@@ -4,12 +4,12 @@ package: orchestrators.pipelines
 enabled: true
 out_dir: "outputs/mlp/pipelines_cv"
 
-active: ["lin_svc", "rf_grid", "svc_random", "tpot_auto", "lazy_cls"]
+active: ["tpot_auto"]
 
 # Configuration de la recherche d’hyperparamètres (déclarative)
 cv:
   type: grid                # grid | random | halving_grid | halving_random
-  n_iter: 40                # utilisé si type ∈ {random, halving_random}
+  n_iter: 10                # utilisé si type ∈ {random, halving_random}
   factor: 2                 # utilisé si type ∈ {halving_grid, halving_random}
   scoring:                  # str | liste | mapping {'f1': 'f1', ...}
     f1: f1
@@ -18,7 +18,7 @@ cv:
   cv_folds: 5               # alias de n_splits
   shuffle: true
   random_state: 42
-  n_jobs: -1
+  n_jobs: 4
   verbose: 1
   return_train_score: true
   error_score: "raise"
@@ -38,7 +38,7 @@ policy:
 pipelines:
   # SVC linéaire + PCA, avec imputation et scaling dans le CT (première étape)
   - name: lin_svc
-    enabled: true
+    enabled: false
     steps:
       preprocess:
         enabled: true
@@ -62,35 +62,32 @@ pipelines:
           C: [0.1, 1.0, 10.0]
           kernel: ["linear"]
 
-  # RandomForest avec policy manuelle : imputation et encodage par règles de colonnes
+  # RandomForest
   - name: rf_grid
-    enabled: true
+    enabled: false
     steps:
       preprocess:
         enabled: true
         column_transformer:
           enabled: true
-          policy: manual
-          columns:
-            - include_regex: "^cat_"
-              categorical:
-                imputer: simple       # imputation la plus fréquente côté factory
-                encoder: OneHotEncoder
-                handle_unknown: ignore
-                min_frequency: 0.01
-            - include: ["age", "income"]
-              numeric:
-                imputer: simple       # imputation médiane côté factory
-                scaler: StandardScaler
+          policy: auto
+          numeric:
+            imputer: simple          # SimpleImputer(strategy="median") côté factory
+            scaler: StandardScaler
+          categorical:
+            imputer: simple          # SimpleImputer(strategy="most_frequent") côté factory
+            encoder: OneHotEncoder   # OneHotEncoder(handle_unknown=ignore, min_frequency=0.01)
+            handle_unknown: ignore
+            min_frequency: 0.01            
       estimator:
         type: "sklearn.ensemble.RandomForestClassifier"
         params:
-          n_estimators: [200, 400]
-          max_depth: [null, 10, 20]
+          n_estimators: [10, 20]
+          max_depth: [null, 5, 10]
 
   # SVC RBF en Randomized/HalvingRandom: même logique de CT avec imputation interne
   - name: svc_random
-    enabled: true
+    enabled: false
     steps:
       preprocess:
         enabled: true
@@ -116,31 +113,49 @@ pipelines:
   # AutoML exécuté comme un pipeline supplémentaire (TPOT)
   - name: tpot_auto
     enabled: true
+    steps: {}
     automl:
       library: tpot
-      name: "tpot_default"
+      name: tpot_auto
       tpot:
+        # Compatibilité TPOT 1.x et 2.x
+        scoring: f1_weighted
+        cv: 5
+        verbose: 4          # TPOT 2.x
+        verbosity: 4        # TPOT 1.x (fallback)
         generations: 5
         population_size: 50
-        scoring: f1
-        cv: 5
-        n_jobs: -1
+
+        # Prétraitement automatique TPOT 2.x (encodage one-hot, etc.)
+        preprocessing: true
+
+        # Parallélisation locale Dask (TPOT 2.x via client)
+        use_dask: true
+        n_workers: 4
+        threads_per_worker: 1
+        memory_limit: "2GB"
+        wait_for_workers: 4
+        wait_timeout_s: 30
+
+        # Export du meilleur pipeline (code .py si dispo, sinon .pkl)
         export_best_pipeline: true
-        export_path: "pipelines/tpot_best_pipeline.py"
+        export_path: "outputs/mlp/automl/tpot_best_pipeline.py"
+
+
 
   # AutoML exécuté comme un pipeline supplémentaire (LazyClassifier)
   - name: lazy_cls
-    enabled: true
+    enabled: false
     automl:
       library: lazypredict
       name: "lazy_default"
       lazy:
-        include: null
-        exclude: null
-        custom_metric: f1
+        include: []         # au lieu de null
+        exclude: []         # au lieu de null
+        custom_metric: null # f1 ici n'est pas une fonction
         cv: 5
         n_jobs: -1
         verbose: 0
         top_n: 25
         save_table: true
-        table_path: "pipelines/lazy_results.csv"
+        table_path: "outputs/mlp/automl/lazy_results.csv"

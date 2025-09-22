@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 try:
     import yaml  # pip install pyyaml
@@ -124,7 +124,7 @@ def is_file_name(name: str) -> bool:
     return has_dot
 
 
-def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+def load_permissions_overrides(struct: dict[str, Any]) -> dict[str, dict[str, int]]:
     """
     Extract and normalize file/dir permission overrides from the structure.
 
@@ -142,16 +142,13 @@ def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, in
     file_map_raw = perms.get("files") or {}
     dir_map_raw = perms.get("dirs") or {}
 
-    def norm_map(mapping: Dict[str, Any]) -> Dict[str, int]:
-        out: Dict[str, int] = {}
+    def norm_map(mapping: dict[str, Any]) -> dict[str, int]:
+        out: dict[str, int] = {}
         for pattern, value in mapping.items():
             try:
                 out[pattern] = norm_mode(value)
             except Exception as exc:
-                log(
-                    "PERM WARN invalid mode for pattern "
-                    f"'{pattern}': {value} ({exc}) -> skipped"
-                )
+                log(f"PERM WARN invalid mode for pattern '{pattern}': {value} ({exc}) -> skipped")
         return out
 
     file_map = norm_map(file_map_raw)
@@ -164,7 +161,7 @@ def load_permissions_overrides(struct: Dict[str, Any]) -> Dict[str, Dict[str, in
     return {"files": file_map, "dirs": dir_map}
 
 
-def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
+def pick_mode_for_dir(path: Path, overrides: dict[str, int]) -> int:
     """
     Select a permission mode for a directory, honoring glob overrides.
 
@@ -179,7 +176,7 @@ def pick_mode_for_dir(path: Path, overrides: Dict[str, int]) -> int:
     return DIR_MODE_DEFAULT
 
 
-def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
+def pick_mode_for_file(path: Path, overrides: dict[str, int]) -> int:
     """
     Select a permission mode for a file, honoring glob overrides and extensions.
 
@@ -191,9 +188,7 @@ def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
     """
     for pattern, mode in overrides.items():
         if path.match(pattern):
-            log(
-                f"FILE MODE override match: {path} matches '{pattern}' -> {oct(mode)}"
-            )
+            log(f"FILE MODE override match: {path} matches '{pattern}' -> {oct(mode)}")
             return mode
 
     ext = path.suffix.lower()
@@ -211,10 +206,10 @@ def pick_mode_for_file(path: Path, overrides: Dict[str, int]) -> int:
 
 def ensure_children(
     base: Path,
-    children: Dict[str, Any],
-    created: Dict[str, list],
-    file_perm_over: Dict[str, int],
-    dir_perm_over: Dict[str, int],
+    children: dict[str, Any],
+    created: dict[str, list],
+    file_perm_over: dict[str, int],
+    dir_perm_over: dict[str, int],
 ) -> None:
     """
     Recursively create directories and files under a base directory.
@@ -252,43 +247,39 @@ def ensure_children(
             nested = node.get("children")
             if isinstance(nested, dict):
                 ensure_children(target, nested, created, file_perm_over, dir_perm_over)
-        else:
-            # Mixed mapping under directory: nested explicit keys
-            if isinstance(node, dict):
-                for sub_name, sub_node in node.items():
-                    if sub_name == "children":
-                        continue
-                    sub_target = target / sub_name
-                    log(
-                        "DIR MIXED "
-                        f"base={target} sub_name={sub_name} sub_type={type(sub_node)}"
-                    )
-                    if is_file_name(sub_name):
-                        mode = pick_mode_for_file(sub_target, file_perm_over)
-                        make_file(sub_target, mode)
-                        created["files"].append(str(sub_target))
-                    elif isinstance(sub_node, dict):
-                        make_dir(sub_target, pick_mode_for_dir(sub_target, dir_perm_over))
-                        created["dirs"].append(str(sub_target))
-                        maybe_children = sub_node.get("children")
-                        if isinstance(maybe_children, dict):
-                            ensure_children(
-                                sub_target,
-                                maybe_children,
-                                created,
-                                file_perm_over,
-                                dir_perm_over,
-                            )
+        # Mixed mapping under directory: nested explicit keys
+        elif isinstance(node, dict):
+            for sub_name, sub_node in node.items():
+                if sub_name == "children":
+                    continue
+                sub_target = target / sub_name
+                log(f"DIR MIXED base={target} sub_name={sub_name} sub_type={type(sub_node)}")
+                if is_file_name(sub_name):
+                    mode = pick_mode_for_file(sub_target, file_perm_over)
+                    make_file(sub_target, mode)
+                    created["files"].append(str(sub_target))
+                elif isinstance(sub_node, dict):
+                    make_dir(sub_target, pick_mode_for_dir(sub_target, dir_perm_over))
+                    created["dirs"].append(str(sub_target))
+                    maybe_children = sub_node.get("children")
+                    if isinstance(maybe_children, dict):
+                        ensure_children(
+                            sub_target,
+                            maybe_children,
+                            created,
+                            file_perm_over,
+                            dir_perm_over,
+                        )
 
 
-def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list]:
+def process_root_structure(struct: dict[str, Any], root: Path) -> dict[str, list]:
     """
     Process the loaded YAML structure for a project at the given root path.
 
     Returns:
         Dict[str, list]: Paths of created directories and files.
     """
-    created: Dict[str, list] = {"dirs": [], "files": []}
+    created: dict[str, list] = {"dirs": [], "files": []}
 
     project = struct.get("project", {})
     log(f"ROOT project keys: {list(project.keys())}")
@@ -308,7 +299,7 @@ def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list
             created["dirs"].append(str(dir_path))
 
             if isinstance(meta, dict):
-                for maybe_name, maybe_node in meta.items():
+                for maybe_name, _maybe_node in meta.items():
                     if maybe_name == "children":
                         continue
                     if is_file_name(maybe_name):
@@ -319,9 +310,7 @@ def process_root_structure(struct: Dict[str, Any], root: Path) -> Dict[str, list
 
                 children = meta.get("children")
                 if isinstance(children, dict):
-                    ensure_children(
-                        dir_path, children, created, file_perm_over, dir_perm_over
-                    )
+                    ensure_children(dir_path, children, created, file_perm_over, dir_perm_over)
 
     files = project.get("files", {})
     if not isinstance(files, dict):

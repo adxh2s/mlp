@@ -50,13 +50,18 @@ def _write_streamlit_po(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     # compile mo if available
-    
+
     if which("msgfmt") is not None:
         mo_path = lcd / "streamlit_app.mo"
         po_path = lcd / "streamlit_app.po"
         msgfmt_path = which("msgfmt")
         # Validate that the files exist and are within the expected directory
-        if po_path.exists() and po_path.parent == lcd and mo_path.parent == lcd and msgfmt_path is not None:
+        if (
+            po_path.exists()
+            and po_path.parent == lcd
+            and mo_path.parent == lcd
+            and msgfmt_path is not None
+        ):
             # Validate that msgfmt_path is a safe executable and arguments are safe paths
             allowed_cmd = Path(msgfmt_path).name == "msgfmt"
             allowed_args = all(
@@ -90,7 +95,7 @@ def test_app_bootstrap_initializes_ui_i18n(tmp_path: Path, monkeypatch: pytest.M
     _write_streamlit_po(tmp_path)
 
     # Point app module to tmp conf path
-    
+
     monkeypatch.setattr(app_mod, "CONF_PATH", conf_path, raising=False)
 
     # Reset session state for isolation

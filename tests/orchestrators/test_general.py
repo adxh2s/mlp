@@ -42,7 +42,10 @@ def test_general_orchestrator_with_file(tmp_path: Path) -> None:
                             "name": "svc_small",
                             "steps": {
                                 "preprocess": {"imputer": "simple"},
-                                "estimator": {"type": "svc", "params": {"kernel": ["linear"], "C": [0.1]}},
+                                "estimator": {
+                                    "type": "svc",
+                                    "params": {"kernel": ["linear"], "C": [0.1]},
+                                },
                             },
                         }
                     ],

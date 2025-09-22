@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Tuple
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -22,7 +21,7 @@ def get_project_root(outputs_dir: str, project_name: str) -> Path:
 
 
 @st.cache_data
-def get_latest_eda_paths(root: Path) -> Tuple[Optional[Path], Optional[Path]]:
+def get_latest_eda_paths(root: Path) -> tuple[Path | None, Path | None]:
     eda_path = root / EDA_DIR
     summary = sorted(eda_path.glob("eda_summary_*.json"))
     profile_html = sorted(eda_path.glob("profile_*.html"))

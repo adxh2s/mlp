@@ -8,7 +8,7 @@ for translation (gettext-backed) and on LoggerManager for structured logs.
 """
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
@@ -34,12 +34,8 @@ class _MessagesConfig:
     def __init__(self, raw: dict[str, Any]) -> None:
         self.enabled: bool = bool(raw.get("enabled", True))
         self.locale: str = str(raw.get("locale", CFG_DEFAULT_LOCALE))
-        self.locales_dir: str = str(
-            raw.get("locales_dir", CFG_DEFAULT_LOCALES_DIR)
-        )
-        self.domains: list[str] = list(
-            raw.get("domains", list(CFG_DEFAULT_DOMAINS))
-        )
+        self.locales_dir: str = str(raw.get("locales_dir", CFG_DEFAULT_LOCALES_DIR))
+        self.domains: list[str] = list(raw.get("domains", list(CFG_DEFAULT_DOMAINS)))
 
 
 class MessageOrchestrator(LoggerMixin):
@@ -53,14 +49,12 @@ class MessageOrchestrator(LoggerMixin):
     def __init__(
         self,
         cfg_mgr: ConfigManager,
-        logger_manager: Optional[LoggerManager] = None,
+        logger_manager: LoggerManager | None = None,
     ) -> None:
         self.cfg_mgr = cfg_mgr
         raw = cfg_mgr.raw.get("orchestrators", {}).get(CFG_SECTION, {})  # type: ignore[union-attr]
         self.cfg = _MessagesConfig(raw if isinstance(raw, dict) else {})
-        self.lm = logger_manager or build_logger_manager(
-            cfg_mgr.build_logger_settings()
-        )
+        self.lm = logger_manager or build_logger_manager(cfg_mgr.build_logger_settings())
         self.lm.configure()
         self.LOGGER_NAME = LOGGER_NAME  # for LoggerMixin
         self._init_logger(self.lm)
@@ -101,10 +95,7 @@ class MessageOrchestrator(LoggerMixin):
         It reports discovered .mo availability for configured domains.
         """
         mo_dir = (
-            Path(self.cfg_mgr.project_root)
-            / self.cfg.locales_dir
-            / self.cfg.locale
-            / "LC_MESSAGES"
+            Path(self.cfg_mgr.project_root) / self.cfg.locales_dir / self.cfg.locale / "LC_MESSAGES"
         )
         present = [(d, (mo_dir / f"{d}.mo").exists()) for d in self.cfg.domains]
         self.emit("general", MESSAGES_READY, domains=present)

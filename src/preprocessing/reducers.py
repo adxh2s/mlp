@@ -7,6 +7,7 @@ from sklearn.decomposition import PCA
 # Import optionnel d'UMAP avec nom de classe isolé pour contenter mypy/pylance
 try:
     import umap  # type: ignore
+
     UMAP_CLS = umap.UMAP
 except Exception:  # pragma: no cover
     UMAP_CLS = None  # type: ignore[assignment]
@@ -58,8 +59,6 @@ class ReducersFactory:
         """Alias kept for backward compatibility."""
         return ReducersFactory.make_reducer(cfg, random_state)
 
-
     @staticmethod
     def instantiate_estimator(cfg: dict[str, Any] | None, random_state: int = 42):
         return ReducersFactory.make_reducer(cfg, random_state)
-    

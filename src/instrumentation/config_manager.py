@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from omegaconf import DictConfig, OmegaConf
 from pydantic import ValidationError
@@ -20,9 +20,9 @@ class ConfigManager:
     def __init__(self, hydra_cfg: DictConfig) -> None:
         """Initialize with a Hydra/OmegaConf DictConfig."""
         self._hydra_cfg = hydra_cfg
-        self._pyd_model: Optional[AppConfig] = None
-        self._raw: Optional[Dict[str, Any]] = None
-        self._project_root: Optional[Path] = None
+        self._pyd_model: AppConfig | None = None
+        self._raw: dict[str, Any] | None = None
+        self._project_root: Path | None = None
 
     def load(self) -> AppConfig:
         """Resolve and validate the configuration, returning AppConfig."""
@@ -40,7 +40,7 @@ class ConfigManager:
         return self._pyd_model or self.load()
 
     @property
-    def raw(self) -> Dict[str, Any]:
+    def raw(self) -> dict[str, Any]:
         """Return the raw resolved dictionary form."""
         return self._raw or OmegaConf.to_container(self._hydra_cfg, resolve=True)  # type: ignore[return-value]
 
@@ -69,7 +69,7 @@ class ConfigManager:
     def build_logger_settings(self) -> LoggerSettings:
         # On récupère la section logger de la config brute si présente
         raw = self.raw
-        logger_raw: Dict[str, Any] = raw.get("logger", {}) if isinstance(raw, dict) else {}
+        logger_raw: dict[str, Any] = raw.get("logger", {}) if isinstance(raw, dict) else {}
         # Si file_path absent → on pointe sur <racine>/logs/app.log
         file_path = logger_raw.get("file_path") or self.make_logs_file_path("app.log")
         # App name: project.name si dispo

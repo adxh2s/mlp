@@ -9,5 +9,6 @@ def main() -> None:
     """Run the Streamlit app."""
     MLPStreamlitApp().run()
 
+
 if __name__ == "__main__":
     main()

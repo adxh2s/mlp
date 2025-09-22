@@ -1,23 +1,27 @@
-FROM python:3.11-slim
+# Dockerfile
+FROM nvcr.io/nvidia/tensorflow:25.02-tf2-py3
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+# Eviter les compilations locales inutiles et réduire le bruit
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+# Mettez vos dépendances ici
+WORKDIR /workspace
+COPY requirements.txt /workspace/requirements.txt
 
-WORKDIR /app
+RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
-COPY pyproject.toml README.md ./
-COPY conf ./conf
-COPY src ./src
-COPY streamlit_pages ./streamlit_pages
-COPY src/templates ./src/templates
+# Met à jour pip et installe les dépendances du projet
+RUN python -m pip install --upgrade pip wheel setuptools \
+ && pip install -r /workspace/requirements.txt
 
-# Install
-RUN pip install --upgrade pip && pip install -e .[dev]
+# Optionnel: créer un utilisateur non-root pour éviter que les fichiers montés soient root
+# ARG UID=1000 GID=1000
+# RUN groupadd -g ${GID} app && useradd -m -u ${UID} -g ${GID} app
+# USER app
 
-EXPOSE 8501
-
-# Default command: Streamlit app
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Commande par défaut interactive
+CMD ["/bin/bash"]

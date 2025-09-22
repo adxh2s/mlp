@@ -12,7 +12,7 @@ GENERAL_DONE = "general_done"
 CONFIG_READY = "config_ready"
 CONFIG_ERROR = "config_error"
 
-DATA_INIT = "data_init",
+DATA_INIT = ("data_init",)
 DATA_PROCESSING_START = "data_processing_start"
 DATA_ANALYSIS_COMPLETE = "data_analysis_complete"
 DATA_PROCESSING_COMPLETE = "data_processing_complete"
@@ -25,7 +25,7 @@ EDA_START = "eda_start"
 EDA_DONE = "eda_done"
 EDA_ORCHESTRATOR_FAILED = "eda_ORCHESTRATOR_failed"
 
-FILE_INIT = "file_init",
+FILE_INIT = ("file_init",)
 FILE_ORCHESTRATOR_DISABLED_REQUIRED = "file_ORCHESTRATOR_disabled_required"
 FILE_ORCHESTRATOR_FAILED = "file_ORCHESTRATOR_failed"
 

@@ -1,0 +1,18 @@
+services:
+  tf:
+    build:
+      context: .
+      dockerfile: Dockerfile  # ajuster si votre Dockerfile a un autre nom
+    image: my-tf-ngc:25.02  # tag local pour réutilisation
+    container_name: tf-gpu
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    tty: true
+    stdin_open: true
+    gpus: all
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: bash -lc "python main.py"

@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+
 from src.modeling.pipelines.factory import PipelineFactory
+
 
 def make_fake_df(n=64, p_num=3, p_cat=2):
     X = pd.DataFrame(
@@ -9,6 +11,7 @@ def make_fake_df(n=64, p_num=3, p_cat=2):
     )
     y = pd.Series(np.random.randint(0, 2, size=n), name="y")
     return X, y
+
 
 def test_factory_auto_policy_builds_ct_and_grids():
     X, _ = make_fake_df()

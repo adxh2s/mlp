@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -83,7 +82,14 @@ def test_config_orchestrator_emits_error_on_invalid_cfg(monkeypatch: pytest.Monk
     events: list[dict[str, str]] = []
 
     def fake_emit(domain: str, event: str, level: str = "info", **fields: Any) -> None:  # noqa: D401
-        events.append({"domain": domain, "event": event, "level": level, **{k: str(v) for k, v in fields.items()}})
+        events.append(
+            {
+                "domain": domain,
+                "event": event,
+                "level": level,
+                **{k: str(v) for k, v in fields.items()},
+            }
+        )
 
     with patch("src.orchestrators.config.MessageOrchestrator") as MM:
         instance = MagicMock()

@@ -11,7 +11,7 @@ Config orchestrator: centralize ConfigManager access and project context.
 """
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from hydra.utils import get_original_cwd
 
@@ -33,7 +33,7 @@ class ConfigOrchestrator(LoggerMixin):
     def __init__(
         self,
         cfg_mgr: ConfigManager,
-        logger_manager: Optional[LoggerManager] = None,
+        logger_manager: LoggerManager | None = None,
     ) -> None:
         """Initialize with a ConfigManager and optional LoggerManager."""
         self.cfg_mgr = cfg_mgr
