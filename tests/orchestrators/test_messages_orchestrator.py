@@ -9,10 +9,10 @@ import pytest
 from omegaconf import OmegaConf
 
 from src.instrumentation.config_manager import ConfigManager
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 """
-Tests for MessageOrchestrator:
+Tests for MessagesOrchestrator:
 - Loads locale config and resolves messages via gettext .mo
 - Emits structured logs (event + msg + domain + fields)
 """
@@ -88,7 +88,7 @@ def test_message_orchestrator_translate_and_emit(
     type(cfg_mgr).project_root = property(lambda self: tmp_path)  # type: ignore[assignment]
 
     # Use real stdlib logger manager (JSON mode) to capture stdout/stderr
-    orch = MessageOrchestrator(cfg_mgr)
+    orch = MessagesOrchestrator(cfg_mgr)
 
     # Act: translate() and emit()
     text = orch.translate("general", "unit_test_event", value=123)
@@ -116,7 +116,7 @@ def test_message_orchestrator_missing_domain_graceful(
     cfg_mgr = ConfigManager(cfg)
     type(cfg_mgr).project_root = property(lambda self: tmp_path)  # type: ignore[assignment]
 
-    orch = MessageOrchestrator(cfg_mgr)
+    orch = MessagesOrchestrator(cfg_mgr)
     # Act
     text = orch.translate("unknown", "unit_test_event", value=1)
     orch.emit("unknown", "unit_test_event", value=1)

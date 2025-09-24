@@ -8,7 +8,7 @@ from src.datavisualization.report_renderer import ReportRenderer
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.messages_taxonomy import REPORT_DONE, REPORT_START
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 """
 Report orchestrator: render consolidated reports and emit events.
@@ -48,10 +48,10 @@ class ReportOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, logger_manager))
         self.log: Any = getattr(self, "log", None)
 
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessagesOrchestrator | None = None
 
-    def attach_messages(self, msg: MessageOrchestrator) -> None:
-        """Attach a MessageOrchestrator for localized emissions."""
+    def attach_messages(self, msg: MessagesOrchestrator) -> None:
+        """Attach a MessagesOrchestrator for localized emissions."""
         self.msg = msg
 
     def run(self, eda_payload: dict[str, Any], pipe_payload: dict[str, Any]) -> dict[str, Any]:

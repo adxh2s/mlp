@@ -18,13 +18,13 @@ from src.instrumentation.messages_taxonomy import (
     INPUT_PROCESSED,
     NO_INPUT_FILE,
 )
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 """
 File orchestrator.
 - Rôle: localiser un fichier d'entrée, l'optionnel copier/compresser pour traçabilité, le lire, et émettre des événements structurés. 
 - Contexte: utilise ctx["data_in"]/ctx["data_out"] si fournis pour les chemins de travail, sinon retombe sur un ancrage Hydra (get_original_cwd). 
-- Journalisation: compatible LoggerManager via LoggerMixin, et peut émettre des messages localisées via MessageOrchestrator.
+- Journalisation: compatible LoggerManager via LoggerMixin, et peut émettre des messages localisées via MessagesOrchestrator.
 """
 
 # =========================
@@ -196,7 +196,7 @@ class FileOrchestrator(LoggerMixin):
             self._init_logger(cast(Any, logger_manager))
         else:
             self.log = logging.getLogger(LOGGER_NAME)
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessagesOrchestrator | None = None
 
         # Résolution des répertoires d'entrée/sortie
         if self.ctx:
@@ -224,7 +224,7 @@ class FileOrchestrator(LoggerMixin):
         cfg = config_manager.model.orchestrators.file
         return cls(cfg, logger_manager=logger_manager, ctx=ctx)
 
-    def attach_messages(self, msg: MessageOrchestrator) -> None:
+    def attach_messages(self, msg: MessagesOrchestrator) -> None:
         """Attache l’orchestrateur de messages pour les émissions localisées."""
         self.msg = msg
 

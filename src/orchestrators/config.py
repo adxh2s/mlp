@@ -10,12 +10,12 @@ from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.messages_taxonomy import CONFIG_ERROR, CONFIG_READY
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 """
 Config orchestrator: centralize ConfigManager access and project context.
 - Loads and validates the AppConfig once.
-- Builds LoggerManager and MessageOrchestrator.
+- Builds LoggerManager and MessagesOrchestrator.
 - Computes a Hydra-safe project context (ctx) with absolute paths.
 """
 
@@ -34,7 +34,7 @@ class ConfigOrchestrator(LoggerMixin):
         self.lm.configure()
         # cast pour satisfaire le protocole SupportsGetLogger de LoggerMixin
         self._init_logger(cast(Any, self.lm))
-        self.msg = MessageOrchestrator(config_manager, logger_manager=self.lm)
+        self.msg = MessagesOrchestrator(config_manager, logger_manager=self.lm)
 
         try:
             self.app_cfg = self.config_manager.load()

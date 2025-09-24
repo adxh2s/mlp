@@ -9,7 +9,7 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 """
 App orchestrator: bootstrap logging and configuration, and build a Hydra-safe ctx.
@@ -32,7 +32,7 @@ class AppOrchestrator:
         app_cfg = self.config_orchestrator.get_app_config()
 
         # 4) Messages (shared) for downstream orchestrators
-        self.message_orchestrator = MessageOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        self.message_orchestrator = MessagesOrchestrator(self.config_manager, logger_manager=self.logger_manager)
 
         # 5) Build ctx (Hydra-safe absolute paths)
         root = Path(get_original_cwd())

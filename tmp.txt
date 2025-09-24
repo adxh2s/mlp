@@ -27,14 +27,14 @@ Moneyball
   - Utiliser Ruff pour trier: ruff check --select I --fix . puis ruff format . [Ruff I001]
 - Logging:
   - Utiliser LoggerManager/Structlog manager unique par process, passé aux orchestrateurs.
-  - Événements comme clés stables (event) + msg localisé via MessageOrchestrator.
+  - Événements comme clés stables (event) + msg localisé via MessagesOrchestrator.
   - Champs structurés: event, domain, service, run_id, locale, etc.
 - i18n:
   - Un domaine gettext par orchestrateur (general, config, file, data, eda, pipelines, report).
   - .po sous i18n/locales/<lang>/LC_MESSAGES/<domain>.po; compilation via msgfmt en CI.
 - Hydra/Config:
   - ConfigOrchestrator centralise ConfigManager + LoggerManager; exposé aux autres.
-  - streamlit_app bootstrap: ConfigOrchestrator puis MessageOrchestrator stockés dans st.session_state.
+  - streamlit_app bootstrap: ConfigOrchestrator puis MessagesOrchestrator stockés dans st.session_state.
 - Tests:
   - Tests unitaires par orchestrateur; usage de tmp_path et compilation .po→.mo (skip si msgfmt absent).
 - Qualité:

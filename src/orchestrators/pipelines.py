@@ -15,7 +15,7 @@ from src.instrumentation.messages_taxonomy import (
     PIPELINES_START,
 )
 from src.modeling.pipelines.evaluator import PipelineEvaluator
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 # Constantes module
 LOGGER_NAME = "mlp.orchestrators.pipelines"
@@ -61,9 +61,9 @@ class PipelineOrchestrator(LoggerMixin):
             self._init_logger(logger_manager)
 
         # Messages (injecté par l’orchestrateur général)
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessagesOrchestrator | None = None
 
-    def attach_messages(self, msg: MessageOrchestrator) -> None:
+    def attach_messages(self, msg: MessagesOrchestrator) -> None:
         """Attache l’émetteur de messages localisés (structlog) pour ce domaine."""
         self.msg = msg
 

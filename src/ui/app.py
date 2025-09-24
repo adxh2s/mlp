@@ -11,7 +11,7 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.messages_manager import MessageManager
 from src.instrumentation.messages_taxonomy import STREAMLIT_INIT
 from src.orchestrators.config import ConfigOrchestrator
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 from src.ui.constants import (
     DEFAULT_OUTPUTS,
     DEFAULT_PROJECT,
@@ -31,11 +31,11 @@ from src.ui.constants import (
 )
 
 """
-Class-based Streamlit app using ConfigOrchestrator + MessageOrchestrator
+Class-based Streamlit app using ConfigOrchestrator + MessagesOrchestrator
 and a MessageManager for UI i18n under the "streamlit_app" domain.
 
 - Loads Hydra config safely with explicit typing to satisfy Pylance.
-- Emits a localized init event via MessageOrchestrator.
+- Emits a localized init event via MessagesOrchestrator.
 - Resolves UI labels via MessageManager with robust fallbacks.
 - Uses modern multipage API: st.Page + st.navigation.
 """
@@ -65,7 +65,7 @@ class MLPStreamlitApp:
     def __init__(self) -> None:
         """Initialize placeholders for orchestrators and UI MessageManager."""
         self.cfg_orch: ConfigOrchestrator | None = None
-        self.msg_orch: MessageOrchestrator | None = None
+        self.msg_orch: MessagesOrchestrator | None = None
         self.ui_mm: MessageManager | None = None
 
     def _ui(self, key: str, **params: Any) -> str:
@@ -98,7 +98,7 @@ class MLPStreamlitApp:
             and "ui_mm" in st.session_state
         ):
             self.cfg_orch = cast(ConfigOrchestrator, st.session_state["cfg_orch"])
-            self.msg_orch = cast(MessageOrchestrator, st.session_state["msg_orch"])
+            self.msg_orch = cast(MessagesOrchestrator, st.session_state["msg_orch"])
             self.ui_mm = cast(MessageManager, st.session_state["ui_mm"])
             return
 
@@ -151,7 +151,7 @@ class MLPStreamlitApp:
 
         cfg_mgr = ConfigManager(OmegaConf.create(raw))
         self.cfg_orch = ConfigOrchestrator(cfg_mgr)
-        self.msg_orch = MessageOrchestrator(
+        self.msg_orch = MessagesOrchestrator(
             cfg_mgr,
             logger_manager=self.cfg_orch.get_logger_manager(),
         )

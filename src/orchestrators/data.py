@@ -20,7 +20,7 @@ from src.instrumentation.messages_taxonomy import (
     DATA_PROCESSING_FAILED,
     DATA_PROCESSING_START,
 )
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 
 LOGGER_NAME = "mlp.orchestrators.data"
 DOMAIN = "data"
@@ -52,13 +52,13 @@ class DataOrchestrator(LoggerMixin):
         )
         self.data_manager = DataManager(cfg_dict)
 
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessagesOrchestrator | None = None
         if self.msg:
             self.msg.emit(DOMAIN, DATA_INIT)
         else:
             self.log.info("data_orchestrator_init")
 
-    def attach_messages(self, msg: MessageOrchestrator) -> None:
+    def attach_messages(self, msg: MessagesOrchestrator) -> None:
         self.msg = msg
 
     def analyze_df(self, df: pd.DataFrame) -> dict[str, Any]:

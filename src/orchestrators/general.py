@@ -27,13 +27,13 @@ from src.instrumentation.messages_taxonomy import (
 from src.orchestrators.data import DataOrchestrator
 from src.orchestrators.eda import EDAOrchestrator
 from src.orchestrators.file import FileOrchestrator
-from src.orchestrators.messages import MessageOrchestrator
+from src.orchestrators.messages import MessagesOrchestrator
 from src.orchestrators.pipelines import PipelineOrchestrator
 from src.orchestrators.report import ReportOrchestrator
 
 """
 General orchestrator: coordinate file→data→EDA→pipelines→report with localized, structured logging.
-- Builds or reuses shared LoggerManager/MessageOrchestrator and propagates context (ctx).
+- Builds or reuses shared LoggerManager/MessagesOrchestrator and propagates context (ctx).
 - Supports starting from files or directly from provided DataFrame/Series.
 """
 
@@ -65,7 +65,7 @@ class GeneralOrchestrator(LoggerMixin):
         self,
         config_manager: ConfigManager,
         logger_manager: Any | None = None,
-        message_orchestrator: MessageOrchestrator | None = None,
+        message_orchestrator: MessagesOrchestrator | None = None,
         ctx: dict[str, str] | None = None,
     ) -> None:
         self.config_manager = config_manager
@@ -77,7 +77,7 @@ class GeneralOrchestrator(LoggerMixin):
         self.LOGGER_NAME = LOGGER_NAME
 
         # Messages
-        self.msg_orch = message_orchestrator or MessageOrchestrator(self.config_manager, logger_manager=self.lm)
+        self.msg_orch = message_orchestrator or MessagesOrchestrator(self.config_manager, logger_manager=self.lm)
 
         # Context (fallback if not provided)
         if ctx is None:
