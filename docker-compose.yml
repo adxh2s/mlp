@@ -1,18 +1,37 @@
 services:
-  tf:
-    build:
-      context: .
-      dockerfile: Dockerfile  # ajuster si votre Dockerfile a un autre nom
-    image: my-tf-ngc:25.02  # tag local pour réutilisation
-    container_name: tf-gpu
-    working_dir: /workspace
+  app:
+    build: .
+    container_name: mlp_app
+    environment:
+      - MLP_OUTPUTS_DIR=${MLP_OUTPUTS_DIR:-/app/outputs}
+      - MLP_PROJECT_NAME=${MLP_PROJECT_NAME:-demo_project}
+      - MLP_NOTEBOOKS_DIR=${MLP_NOTEBOOKS_DIR:-/app/notebooks}
+      - MLP_NOTEBOOKS_URL=${MLP_NOTEBOOKS_URL:-}
+      - MLP_LANG=${MLP_LANG:-fr}
     volumes:
-      - ./:/workspace
-    tty: true
-    stdin_open: true
-    gpus: all
-    ipc: host
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    command: bash -lc "python main.py"
+      - ./:/app
+      - outputs:/app/outputs
+      - notebooks:/app/notebooks
+    ports:
+      - "8501:8501"
+    command: >
+      uv run streamlit run streamlit_app.py
+      --server.address=0.0.0.0 --server.port=8501
+
+  notebooks:
+    build: .
+    container_name: mlp_notebooks
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - notebooks:/app/notebooks
+    ports:
+      - "8888:8888"
+    command: >
+      uv run jupyter lab
+      --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+      --NotebookApp.token=''
+
+volumes:
+  outputs:
+  notebooks:

@@ -1,101 +1,161 @@
-
 project:
   name: mlp
   description: >
-  mlp: EDA → Pipelines → Rapports (Hydra/Pydantic/Jinja), Streamlit multipages (routage programmatique),
-    avec instrumentation centralisée (configuration + logging via LoggerManager/StructlogLoggerManager et LoggerMixin).
+    mlp: EDA → Pipelines → Rapports (Hydra/Pydantic/Jinja), Streamlit multipages
+    avec instrumentation centralisée (configuration + logging), et génération de rapports.
+
   directories:
-  conf:
-  description: Configurations Hydra composables en YAML.
-  children:
-  config.yaml: "Config racine Hydra; compose les blocs d’orchestrateurs"
-  orchestrators:
-  eda.yaml: "Paramètres EDA (YData Profiling, options)"
-  pipelines.yaml: "Pipelines et grilles d’hyperparamètres"
-  report.yaml: "Formats et options de rendu des rapports"
-  src:
-  description: Code Python structuré par phases ML + instrumentation.
-  children:
-  config:
-  description: Schémas Pydantic (types de configuration).
-  children:
-  schemas.py: "Schémas Pydantic"
-  instrumentation:
-  description: Instrumentation (config + logging + mixin).
-  children:
-  config_manager.py: "Configuration Hydra→Pydantic"
-  logger_manager.py: "LoggerManager (stdlib JSON/console)"
-  logger_manager_structlog.py: "StructlogLoggerManager (hérite de LoggerManager)"
-  logger_factory.py: "Factory de loggers (sélection backend)"
-  logger_mixin.py: "LoggerMixin (injection self.log)"
-  datanalysis:
-  description: Exploration des données (audit/EDA).
-  children:
-  eda_profile.py: "YData Profiling (to_file)"
-  eda_summary.py: "Synthèse JSON + flags"
-  datavisualization:
-  description: Rendu Jinja2.
-  children:
-  report_renderer.py: "Rendu HTML/MD depuis templates"
-  preprocessing:
-  description: Pré-traitements.
-  children:
-  selectors.py: "VarianceThreshold/SelectKBest/Percentile"
-  reducers.py: "PCA/UMAP"
-  samplers.py: "Extension imbalanced-learn"
-  modeling:
-  description: Construction/évaluation pipelines.
-  children:
-  pipeline_factory.py: "Assemblage Pipeline + grilles"
-  evaluator.py: "GridSearchCV/StratifiedKFold"
-  evaluation:
-  description: Métriques/splits (extensible).
-  children:
-  metrics.py: "Métriques [placeholder]"
-  splitting.py: "Splits avancés [placeholder]"
-  orchestrators:
-  description: Coordination EDA→Pipelines→Rapport.
-  children:
-  base.py: "Interface IOrchestrator"
-  eda.py: "EDAOrchestrator (LoggerMixin)"
-  pipelines.py: "PipelineOrchestrator (LoggerMixin)"
-  report.py: "ReportOrchestrator (LoggerMixin)"
-  general.py: "GeneralOrchestrator (LoggerMixin)"
-  templates:
-  description: Templates Jinja2 pour rapports.
-  children:
-  base.html.jinja: "Layout HTML de base"
-  report.html.jinja: "Rapport HTML"
-  report.md.jinja: "Rapport Markdown"
-  streamlit_pages:
-  description: Pages Streamlit (routage programmatique).
-  children:
-  home.py: "Accueil"
-  eda.py: "EDA + YData (iframe / génération ad hoc)"
-  pipelines.py: "Résultats CV et téléchargements"
-  reports.py: "Rapports rendus (HTML/MD)"
-  data:
-  description: Données brutes/traitées.
-  children:
-  in: "Entrée de données (brutes)."
-  out: "Sorties/exports (traitées)."
+    conf:
+      description: Configurations Hydra composables en YAML.
+      children:
+        config.yaml: "Config racine Hydra; compose les blocs d’orchestrateurs"
+        orchestrators:
+          description: Configs par orchestrateur.
+          children:
+            config:
+              children:
+                config.yaml: "Activation/paquet orchestrateur de configuration"
+            data:
+              children:
+                data.yaml: "Colonnes cibles, encodage, stratégie de valeurs manquantes"
+            eda:
+              children:
+                eda.yaml: "Activation EDA (YData Profiling, options)"
+            file:
+              children:
+                file.yaml: "Répertoires, extensions, copie/compression des fichiers"
+            messages:
+              children:
+                messages.yaml: "Locale, répertoire des locales, domaines de messages"
+            pipelines:
+              children:
+                pipelines.yaml: "Pipelines actifs, CV, politique, specs de pipelines"
+            report:
+              children:
+                report.yaml: "Formats de rendu et options de rapport"
+
+    src:
+      description: Code Python structuré par phases ML + instrumentation.
+      children:
+        config:
+          description: Schémas Pydantic (types de configuration).
+          children:
+            schemas.py: "Schémas Pydantic"
+        datanalysis:
+          description: Exploration des données (audit/EDA).
+          children:
+            eda_profile.py: "YData Profiling (to_file)"
+            eda_summary.py: "Synthèse JSON + flags"
+        datavisualization:
+          description: Rendu Jinja2.
+          children:
+            report_renderer.py: "Rendu HTML/MD depuis templates"
+        evaluation:
+          description: Métriques/splits (extensible).
+          children:
+            metrics.py: "Métriques (extensible)"
+            splitting.py: "Stratégies de splits (extensible)"
+        instrumentation:
+          description: Instrumentation (config + logging + i18n + fichier).
+          children:
+            bootstrap_logging.py: "Bootstrap du système de logs"
+            config_manager.py: "Hydra→Pydantic + utilitaires config"
+            data_manager.py: "Préparation et validation des données"
+            file_manager.py: "Utilitaires fichiers (I/O, compression, perms)"
+            logger_factory.py: "Fabrique de gestionnaires de logs"
+            logger_manager.py: "Gestionnaire de logs (stdlib)"
+            logger_manager_structlog.py: "Gestionnaire structlog"
+            logger_mixin.py: "Mixin d’injection self.log"
+            messages_manager.py: "Gestion de messages localisés"
+            messages_taxonomy.py: "Taxonomie de messages"
+        modeling:
+          description: Construction/évaluation pipelines + DL optionnel.
+          children:
+            dl:
+              description: Composants Deep Learning (optionnels).
+              children:
+                config.py: "Config DL (callbacks/compile/fit/model/export)"
+                consts.py: "Constantes DL"
+                factory.py: "Fabriques de modèles Keras"
+                trainer.py: "Boucles d’entraînement et callbacks"
+            pipelines:
+              description: Pipelines scikit-learn.
+              children:
+                consts.py: "Constantes pipelines"
+                evaluator.py: "GridSearchCV/StratifiedKFold, export cv_results_.csv"
+                factory.py: "Assemblage Pipeline + grilles"
+        orchestrators:
+          description: Coordination EDA→Pipelines→Rapport (+ app/config).
+          children:
+            app.py: "Entrée orchestrateur d’application"
+            base.py: "Interface IOrchestrator"
+            config.py: "Orchestrateur de configuration"
+            data.py: "Orchestrateur de données"
+            eda.py: "Orchestrateur EDA"
+            file.py: "Orchestrateur de fichiers"
+            general.py: "Orchestrateur général"
+            logger.py: "Orchestrateur de logs"
+            messages.py: "Orchestrateur de messages"
+            pipelines.py: "Orchestrateur de pipelines"
+            report.py: "Orchestrateur de rapports"
+        preprocessing:
+          description: Pré-traitements.
+          children:
+            reducers.py: "PCA/UMAP/ParametricUMAP (lazy import)"
+            samplers.py: "SMOTE/Over/Under (imbalanced-learn)"
+            selectors.py: "VarianceThreshold/SelectKBest/Percentile"
+        templates:
+          description: Templates Jinja2 pour rapports.
+          children:
+            base.html.jinja: "Layout HTML de base"
+            report.html.jinja: "Rapport HTML"
+            report.md.jinja: "Rapport Markdown"
+        ui:
+          description: App Streamlit (UI + i18n).
+          children:
+            app.py: "Wrapper Streamlit (navigation, i18n basique)"
+            constants.py: "Constantes UI"
+
+    streamlit_pages:
+      description: Pages Streamlit (routage programmatique).
+      children:
+        home.py: "Accueil"
+        eda.py: "EDA + YData (iframe / génération ad hoc)"
+        pipelines.py: "Résultats CV et téléchargements"
+        reports.py: "Rapports rendus (HTML/MD)"
+        utils_runs.py: "Utilitaires de runs affichés côté UI"
+
+    data:
+      description: Données brutes/traitées.
+      children:
+        in: "Entrée de données (brutes)"
+        out: "Sorties/exports (traitées)"
+
+    outputs:
+      description: Artefacts générés (EDA, pipelines, rapports).
+
   files:
-  streamlit_app.py: "Entrée Streamlit (st.Page/st.navigation)"
-  main.py: "Entrée Hydra"
-  requirements.txt: "Dépendances (Hydra, Pydantic, scikit-learn, Jinja2, Streamlit, etc.)"
+    main.py: "Entrée Hydra"
+    streamlit_app.py: "Entrée Streamlit (st.Page/st.navigation)"
+    session_context_md.py: "Générateur du session-context.md"
+    project_structure.yaml: "Spécification d’arborescence"
+    requirements.txt: "Dépendances"
+    pyproject.toml: "Configuration des outils (ruff, mypy, pytest, etc.)"
+
   permissions:
-  files:
-  ".py": 755
-  "conf/**/.yaml": 644
-  "/*.yml": 644
-  "/.md": 644
-  "**/.json": 644
-  "/*.csv": 644
-  "/.ini": 644
-  "**/.cfg": 644
-  "src/templates/*.jinja": 644
-  dirs:
-  "src/": 755
-  "conf/": 755
-  "streamlit_pages/**": 755
-  "outputs": 775
+    files:
+      "*.py": 755
+      "conf/**/*.yaml": 644
+      "conf/**/*.yml": 644
+      "**/*.md": 644
+      "**/*.json": 644
+      "**/*.csv": 644
+      "**/*.ini": 644
+      "**/*.cfg": 644
+      "src/templates/**/*.jinja": 644
+    dirs:
+      "src/**": 755
+      "conf/**": 755
+      "streamlit_pages/**": 755
+      "outputs": 775
+      "data/**": 775

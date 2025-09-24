@@ -1,7 +1,11 @@
+# streamlit_pages/eda.py
 from __future__ import annotations
+
+"""Page EDA: profil YData, résumé JSON et intégrations externes."""
 
 import json
 from pathlib import Path
+from typing import Tuple
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -9,94 +13,74 @@ from omegaconf import OmegaConf
 
 from src.instrumentation.config_manager import ConfigManager
 from src.orchestrators.general import GeneralOrchestrator
-from streamlit_pages.utils_runs import append_run, new_run_id
-
-APP_TITLE = "EDA"
-EDA_DIR = "eda"
 
 
-@st.cache_resource
-def get_project_root(outputs_dir: str, project_name: str) -> Path:
+def _project_root(outputs_dir: str, project_name: str) -> Path:
     return Path(outputs_dir) / project_name
 
 
 @st.cache_data
-def get_latest_eda_paths(root: Path) -> tuple[Path | None, Path | None]:
-    eda_path = root / EDA_DIR
+def _latest_eda_paths(root: Path) -> Tuple[Path | None, Path | None]:
+    eda_path = root / "eda"
     summary = sorted(eda_path.glob("eda_summary_*.json"))
     profile_html = sorted(eda_path.glob("profile_*.html"))
     return (summary[-1] if summary else None, profile_html[-1] if profile_html else None)
 
 
 @st.cache_data
-def load_json(path: Path) -> dict:
+def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _run_eda(outputs_dir: str, project_name: str) -> str:
-    """Execute EDA phase via GeneralOrchestrator and return run_id."""
-    run_id = new_run_id()
+def _run_eda(outputs_dir: str, project_name: str) -> None:
     cfg = OmegaConf.load("conf/config.yaml")
     cfg.project.output_dir = outputs_dir
     cfg.project.name = project_name
-
     cfg_mgr = ConfigManager(cfg)
     cfg_mgr.load()
-
-    # Jeux de données de démo (comme dans main.py)
-    from sklearn.datasets import load_breast_cancer
-
-    ds = load_breast_cancer(as_frame=True)
-    X = ds.frame.drop(columns=["target"])
-    y = ds.frame["target"]
-
-    go = GeneralOrchestrator(cfg_mgr)
-    out = go.run(X, y)
-    root = Path(outputs_dir) / project_name
-    append_run(
-        root,
-        {"run_id": run_id, "when": run_id, "artifacts": out.get("report", {}).get("artifacts", [])},
-    )
-    return run_id
+    orch = GeneralOrchestrator(cfg_mgr)
+    if hasattr(orch, "run_eda"):
+        orch.run_eda()
+    elif hasattr(orch, "run"):
+        orch.run(steps=["eda"])
 
 
 def run() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="🧭", layout="wide")
-    st.title("Exploration des données (EDA)")
+    tr = st.session_state.get("tr", lambda k, **p: k)
+    st.set_page_config(page_title=tr("TITLE_EDA"), layout="wide")
+    st.title(tr("TITLE_EDA"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
     project_name = st.session_state.get("project_name", "demo_project")
-    root = get_project_root(outputs_dir, project_name)
+    root = _project_root(outputs_dir, project_name)
 
-    colA, colB = st.columns([1, 1], gap="large")
-    with colA:
-        st.subheader("Synthèse (dernier run)")
-        summary_path, profile_path = get_latest_eda_paths(root)
+    c1, c2 = st.columns([1, 1], gap="large")
+    with c1:
+        st.subheader("Actions")
+        if st.button(tr("BTN_RUN_EDA")):
+            _run_eda(outputs_dir, project_name)
+            st.cache_data.clear()
+            st.success(tr("BTN_RUN_EDA"))
+        st.subheader(tr("SECTION_EXTERNAL"))
+        external_html = st.file_uploader(tr("UPLOAD_HTML"), type=["html"])
+        if external_html:
+            dest = root / "eda"
+            dest.mkdir(parents=True, exist_ok=True)
+            target = dest / external_html.name
+            target.write_bytes(external_html.getbuffer())
+            st.success(f"{tr('MSG_FILE_SAVED')}: {target}")
+
+    with c2:
+        st.subheader(tr("SECTION_LATEST"))
+        summary_path, profile_path = _latest_eda_paths(root)
         if summary_path and summary_path.exists():
-            data = load_json(summary_path)
+            st.write(tr("LBL_EDA_JSON"))
+            data = _load_json(summary_path)
             st.json(data)
-            st.download_button(
-                "Télécharger JSON",
-                data=json.dumps(data, indent=2, ensure_ascii=False),
-                file_name=summary_path.name,
-                mime="application/json",
-            )
         else:
-            st.info("Aucun eda_summary_*.json trouvé.")
-
-    with colB:
-        st.subheader("Profil YData (HTML intégré)")
+            st.info(tr("MSG_NO_EDA_SUMMARY"))
         if profile_path and profile_path.exists():
-            components.iframe(f"file://{profile_path.resolve()}", height=800)
-            st.caption(f"Profil: {profile_path.name}")
+            st.write(tr("LBL_EDA_PROFILE"))
+            components.html(profile_path.read_text(encoding="utf-8"), height=800, scrolling=True)
         else:
-            st.info("Aucun profile_*.html trouvé.")
-
-    st.divider()
-    st.subheader("Lancer un run EDA maintenant")
-    if st.button("Run EDA"):
-        run_id = _run_eda(outputs_dir, project_name)
-        st.success(f"EDA lancé, run_id={run_id}")
-        # Invalider les caches pour rafraîchir la page
-        st.cache_data.clear()
-        st.cache_resource.clear()
+            st.info(tr("MSG_NO_EDA_PROFILE"))

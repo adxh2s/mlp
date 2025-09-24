@@ -1,20 +1,20 @@
+# streamlit_pages/reports.py
 from __future__ import annotations
+
+"""Page Rapports: listing et rendu des rapports HTML/MD générés."""
 
 from pathlib import Path
 
 import streamlit as st
-
-APP_TITLE = "Rapports"
-REPORTS_DIR = "reports"
+import streamlit.components.v1 as components
 
 
-@st.cache_resource
-def get_project_root(outputs_dir: str, project_name: str) -> Path:
+def _project_root(outputs_dir: str, project_name: str) -> Path:
     return Path(outputs_dir) / project_name
 
 
 @st.cache_data
-def list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
+def _list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
     found: list[Path] = []
     for ext in exts:
         found.extend(rep_path.glob(f"*{ext}"))
@@ -22,33 +22,26 @@ def list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
 
 
 def run() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="📄", layout="wide")
-    st.title("Rapports rendus")
+    tr = st.session_state.get("tr", lambda k, **p: k)
+    st.set_page_config(page_title=tr("TITLE_REPORTS"), layout="wide")
+    st.title(tr("TITLE_REPORTS"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
     project_name = st.session_state.get("project_name", "demo_project")
-    root = get_project_root(outputs_dir, project_name)
-    rep_root = root / REPORTS_DIR
+    root = _project_root(outputs_dir, project_name)
+    rep_root = root / "reports"
 
     if not rep_root.exists():
-        st.info("Aucun répertoire reports trouvé.")
+        st.info(tr("MSG_NO_REPORTS_DIR"))
         return
 
-    artifacts = list_artifacts(rep_root, exts=[".html", ".md"])
+    artifacts = _list_artifacts(rep_root, exts=[".html", ".md"])
     if not artifacts:
-        st.info("Aucun rapport rendu trouvé.")
+        st.info(tr("MSG_NO_REPORTS"))
         return
 
-    sel = st.selectbox("Sélectionner un rapport", options=[p.name for p in artifacts])
-    f = rep_root / sel
-    st.write(f"Fichier: {f}")
-    if f.suffix.lower() == ".md":
-        content = f.read_text(encoding="utf-8")
-        st.download_button(
-            "Télécharger Markdown", data=content, file_name=f.name, mime="text/markdown"
-        )
-        st.markdown(content)
-    elif f.suffix.lower() == ".html":
-        html = f.read_text(encoding="utf-8")
-        st.download_button("Télécharger HTML", data=html, file_name=f.name, mime="text/html")
-        st.components.v1.iframe(f"file://{f.resolve()}", height=800)
+    sel = st.selectbox(tr("LBL_SELECT_REPORT"), artifacts, format_func=lambda p: p.name)
+    if sel.suffix == ".md":
+        st.markdown(sel.read_text(encoding="utf-8"))
+    else:
+        components.html(sel.read_text(encoding="utf-8"), height=800, scrolling=True)

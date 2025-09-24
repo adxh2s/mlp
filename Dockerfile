@@ -1,27 +1,37 @@
-# Dockerfile
-FROM nvcr.io/nvidia/tensorflow:25.02-tf2-py3
+FROM python:3.11-slim
 
-# Eviter les compilations locales inutiles et réduire le bruit
-ENV DEBIAN_FRONTEND=noninteractive \
-    PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Mettez vos dépendances ici
-WORKDIR /workspace
-COPY requirements.txt /workspace/requirements.txt
+WORKDIR /app
 
-RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 \
- && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git build-essential gettext && \
+    rm -rf /var/lib/apt/lists/*
 
-# Met à jour pip et installe les dépendances du projet
-RUN python -m pip install --upgrade pip wheel setuptools \
- && pip install -r /workspace/requirements.txt
+# Installer uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
-# Optionnel: créer un utilisateur non-root pour éviter que les fichiers montés soient root
-# ARG UID=1000 GID=1000
-# RUN groupadd -g ${GID} app && useradd -m -u ${UID} -g ${GID} app
-# USER app
+# Dépendances (cache-friendly)
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+ENV VIRTUAL_ENV="/app/.venv"
+ENV PATH="/app/.venv/bin:${PATH}"
 
-# Commande par défaut interactive
-CMD ["/bin/bash"]
+# Code + i18n
+COPY . .
+RUN uv pip install -e .
+
+# Compiler les .po en .mo (si présents)
+RUN find i18n/locales -name "*.po" -type f -print0 | xargs -0 -I {} sh -c 'msgfmt "{}" -o "${0%.po}.mo"' {}
+
+ENV MLP_OUTPUTS_DIR=outputs \
+    MLP_PROJECT_NAME=demo_project \
+    MLP_NOTEBOOKS_DIR=notebooks \
+    MLP_NOTEBOOKS_URL= \
+    MLP_LANG=fr
+
+EXPOSE 8501 8888
+
+CMD ["uv", "run", "streamlit", "run", "streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501"]

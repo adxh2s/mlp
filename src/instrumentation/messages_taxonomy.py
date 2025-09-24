@@ -1,56 +1,60 @@
 from __future__ import annotations
 
-APP_START = "app_start"
-APP_DONE = "app_done"
+from typing import Final
 
-STREAMLIT_INIT = "streamlit_init"
+"""
+Taxonomie des clés de messages (gettext msgid) utilisées dans l’application.
+"""
 
-GENERAL_START_FROM_DATA = "general_start_from_data"
-GENERAL_START_FROM_FILES = "general_start_from_files"
-GENERAL_DONE = "general_done"
+APP_START: Final[str] = "app_start"
+APP_DONE: Final[str] = "app_done"
+STREAMLIT_INIT: Final[str] = "streamlit_init"
 
-CONFIG_READY = "config_ready"
-CONFIG_ERROR = "config_error"
+GENERAL_START_FROM_DATA: Final[str] = "general_start_from_data"
+GENERAL_START_FROM_FILES: Final[str] = "general_start_from_files"
+GENERAL_DONE: Final[str] = "general_done"
 
-DATA_INIT = ("data_init",)
-DATA_PROCESSING_START = "data_processing_start"
-DATA_ANALYSIS_COMPLETE = "data_analysis_complete"
-DATA_PROCESSING_COMPLETE = "data_processing_complete"
-DATA_ANALYSIS_FAILED = "data_analysis_failed"
-DATA_PROCESSING_FAILED = "data_processing_failed"
-DATA_ORCHESTRATOR_DISABLED_NOT_DF = "data_ORCHESTRATOR_disabled_not_df"
-DATA_ORCHESTRATOR_FAILED = "data_ORCHESTRATOR_failed"
+CONFIG_READY: Final[str] = "config_ready"
+CONFIG_ERROR: Final[str] = "config_error"
 
-EDA_START = "eda_start"
-EDA_DONE = "eda_done"
-EDA_ORCHESTRATOR_FAILED = "eda_ORCHESTRATOR_failed"
+DATA_INIT: Final[str] = "data_init"
+DATA_PROCESSING_START: Final[str] = "data_processing_start"
+DATA_ANALYSIS_COMPLETE: Final[str] = "data_analysis_complete"
+DATA_PROCESSING_COMPLETE: Final[str] = "data_processing_complete"
+DATA_ANALYSIS_FAILED: Final[str] = "data_analysis_failed"
+DATA_PROCESSING_FAILED: Final[str] = "data_processing_failed"
+DATA_ORCHESTRATOR_DISABLED_NOT_DF: Final[str] = "data_ORCHESTRATOR_disabled_not_df"
+DATA_ORCHESTRATOR_FAILED: Final[str] = "data_ORCHESTRATOR_failed"
 
-FILE_INIT = ("file_init",)
-FILE_ORCHESTRATOR_DISABLED_REQUIRED = "file_ORCHESTRATOR_disabled_required"
-FILE_ORCHESTRATOR_FAILED = "file_ORCHESTRATOR_failed"
+EDA_START: Final[str] = "eda_start"
+EDA_DONE: Final[str] = "eda_done"
+EDA_ORCHESTRATOR_FAILED: Final[str] = "eda_ORCHESTRATOR_failed"
 
-GENERAL_INIT = "general_init"
-GENERAL_DATA_PREVIEW = "general_data_preview"
+FILE_INIT: Final[str] = "file_init"
+FILE_ORCHESTRATOR_DISABLED_REQUIRED: Final[str] = "file_ORCHESTRATOR_disabled_required"
+FILE_ORCHESTRATOR_FAILED: Final[str] = "file_ORCHESTRATOR_failed"
 
-NO_INPUT_FILE = "no_input_file"
-NO_INPUT_FILES_FOUND = "no_input_files_found"
-INPUT_FOUND = "input_found"
-INPUT_PROCESSED = "input_processed"
+GENERAL_INIT: Final[str] = "general_init"
+GENERAL_DATA_PREVIEW: Final[str] = "general_data_preview"
 
-MESSAGES_READY = "messages_ready"
+NO_INPUT_FILE: Final[str] = "no_input_file"
+NO_INPUT_FILES_FOUND: Final[str] = "no_input_files_found"
+INPUT_FOUND: Final[str] = "input_found"
+INPUT_PROCESSED: Final[str] = "input_processed"
 
-PIPELINES_START = "pipelines_start"
-PIPELINES_EVAL_START = "pipelines_eval_start"
-PIPELINES_EVAL_DONE = "pipelines_eval_done"
-PIPELINES_DONE = "pipelines_done"
-PIPELINES_DISABLED = "pipelines_disabled"
-PIPELINES_ORCHESTRATOR_FAILED = "pipelines_ORCHESTRATOR_failed"
+MESSAGES_READY: Final[str] = "messages_ready"
 
-REPORT_START = "report_start"
-REPORT_DONE = "report_done"
-REPORT_ORCHESTRATOR_FAILED = "report_orchestrator_failed"
+PIPELINES_START: Final[str] = "pipelines_start"
+PIPELINES_EVAL_START: Final[str] = "pipelines_eval_start"
+PIPELINES_EVAL_DONE: Final[str] = "pipelines_eval_done"
+PIPELINES_DONE: Final[str] = "pipelines_done"
+PIPELINES_DISABLED: Final[str] = "pipelines_disabled"
+PIPELINES_ORCHESTRATOR_FAILED: Final[str] = "pipelines_ORCHESTRATOR_failed"
 
-STEP_ERROR = "step_error"
+REPORT_START: Final[str] = "report_start"
+REPORT_DONE: Final[str] = "report_done"
+REPORT_ORCHESTRATOR_FAILED: Final[str] = "report_orchestrator_failed"
 
-USING_EXAMPLE_DATA = "using_example_data"
-USING_EXAMPLE_DATA_BLOCKED = "using_example_data_blocked"
+STEP_ERROR: Final[str] = "step_error"
+USING_EXAMPLE_DATA: Final[str] = "using_example_data"
+USING_EXAMPLE_DATA_BLOCKED: Final[str] = "using_example_data_blocked"

@@ -14,7 +14,13 @@ matplotlib<3.9,>=3.8
 jinja2<4,>=3.1
 streamlit<1.38,>=1.36
 lazypredict<0.3,>=0.2.16
+plotly<6,>=5.22
+structlog<25,>=24.1
 mlflow<3,>=2.12
+jupyterlab<5,>=4
+ipykernel<7,>=6
+nbconvert<8,>=7
+nbformat<6,>=5
 protobuf==4.25.3
 tensorflow==2.16.1
 setuptools>=80.0

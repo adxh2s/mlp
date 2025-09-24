@@ -1,11 +1,15 @@
+# streamlit_pages/home.py
 from __future__ import annotations
+
+"""Page d'accueil de l'application Streamlit."""
 
 import streamlit as st
 
 
 def run() -> None:
-    st.header("Accueil")
+    tr = st.session_state.get("tr", lambda k, **p: k)
+    st.set_page_config(page_title=tr("TITLE_HOME"))
+    st.header(tr("TITLE_HOME"))
     st.markdown(
-        "- Utiliser la barre latérale pour configurer le projet (outputs/projet).  \n"
-        "- Naviguer avec les onglets en haut pour EDA, Pipelines et Rapports."
+        "- " + tr("SIDEBAR_CONFIG") + " · " + tr("SIDEBAR_NAV")
     )
