@@ -660,55 +660,88 @@ class PipelineEvaluator(LoggerMixin):
     # -------------------------
     # DL runner (Keras)
     # -------------------------
-
-    def _maybe_run_dl(self, spec: dict[str, Any], x: pd.DataFrame, y: pd.Series) -> dict[str, Any] | None:
+    def _maybe_run_dl(
+        self,
+        spec: dict[str, Any],
+        x: pd.DataFrame,
+        y: pd.Series,
+    ) -> dict[str, Any] | None:
         """
-        Exécute un pipeline DL si automl.library == 'dl':
-        - Parse la config DL, split train/val en ndarray, entraîne, et renvoie summary/métriques/artefacts.
+        Branche DL: applique d'abord le ColumnTransformer si configuré, puis entraîne un MLP dense.
+        - Construit le preprocess depuis la spec + policy (via la fabrique).
+        - Transforme X, densifie si nécessaire, puis entraîne via train_dense.
         """
         automl = _as_mapping(spec.get(AUTO_KEY))
         if str(automl.get(AUTO_LIB, "")).lower() != "dl":
             return None
 
+        # 1) Récupérer la policy globale: priorité à self.policy puis spec.policy
+        try:
+            global_policy: dict[str, Any] = cast(dict[str, Any], getattr(self, "policy", {}))
+        except Exception:  # noqa: BLE001
+            global_policy = {}
+        if not global_policy:
+            global_policy = _as_mapping(spec.get("policy"))
+
+        # 2) Construire ColumnTransformer depuis spec + policy
+        ct = None
+        try:
+            # La fabrique sait construire le CT (OneHot, Impute, Scale) à partir de la spec
+            ct = PipelineFactory._build_column_transformer(spec, global_policy)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            ct = None
+
+        # 3) Appliquer preprocess si présent
+        x_num: Any = x
+        if ct is not None:
+            x_num = ct.fit_transform(x, y)
+            # OneHotEncoder peut renvoyer sparse: densifier
+            if hasattr(x_num, "toarray"):
+                x_num = x_num.toarray()
+
+        # 4) Conversion en arrays typés
+        x_values = np.asarray(x_num, dtype=float)
+        y_values = np.asarray(y.to_numpy(copy=False), dtype=int)
+
+        # 5) Split train/val: utiliser l'utilitaire existant s'il est présent, sinon fallback
+        try:
+            x_tr, x_val, y_tr, y_val = _tts_np(  # type: ignore[name-defined]
+                x_values,
+                y_values,
+                test_size=0.2,
+                random_state=getattr(self, "random_state", 42),
+                stratify=y_values,
+            )
+        except Exception:  # noqa: BLE001
+            n = x_values.shape[0]
+            n_val = max(1, int(0.2 * n))
+            x_tr, x_val = x_values[:-n_val], x_values[-n_val:]
+            y_tr, y_val = y_values[:-n_val], y_values[-n_val:]
+
+        # 6) Configuration DL
         dl_cfg_raw: dict[str, Any] = _as_mapping(automl.get("dl"))
         dl_cfg = DLConfig(**dl_cfg_raw)
 
-        # Split train/val sur ndarrays (stratify attend un ArrayLike numpy)
-        x_values = cast(npt.NDArray[np.float64], cast(Any, x).to_numpy(dtype=np.float64, copy=False))
-        y_values = cast(npt.NDArray[np.int64], cast(Any, y).to_numpy(dtype=np.int64, copy=False))
-        x_tr, x_val, y_tr, y_val = _tts_np(
-            x_values, y_values, test_size=0.2, random_state=self.random_state, stratify=y_values
+        # 7) Entraînement dense
+        out = train_dense(
+            cast(Any, x_tr),
+            cast(Any, y_tr),
+            cast(Any, x_val),
+            cast(Any, y_val),
+            dl_cfg,
         )
 
-        out = train_dense(cast(Any, x_tr), cast(Any, y_tr), cast(Any, x_val), cast(Any, y_val), dl_cfg)
-
-        # Sélection d'un score "best_score" compatible (acc / auc si dispo en val_*)
-        final: dict[str, Any] = cast(dict[str, Any], out.get("final_metrics", {}) or {})
-        best_score = None
-        for key in DL_BEST_SCORE_KEYS:
-            if key in final:
-                try:
-                    best_score = float(final[key])
-                    break
-                except Exception as exc:  # noqa: BLE001
-                    self._py_logger.debug("parse metric '%s' failed: %s", key, exc)
-
-        artifacts: list[str] = []
-        if out.get("model_path"):
-            artifacts.append(cast(str, out["model_path"]))
-        if out.get("history_csv"):
-            artifacts.append(cast(str, out["history_csv"]))
-
+        # 8) Résumé pour la couche d'appel
+        best_score = max(
+            (out.get("final_metrics", {}) or {}).values() or [float("nan")]
+        )
         return {
-            "name": automl.get(AUTO_NAME, "dl_dense"),
-            "best_score": best_score,
-            "best_params": {},
-            "duration_sec": None,
-            "cv_results_path": out.get("history_csv"),
-            "artifacts": artifacts,
-            "summary": out.get("summary"),
-            "metrics": final,
+            "best_score": float(best_score),
+            "details": out,
+            "estimator": "dl_dense",
+            "preprocess_applied": ct is not None,
         }
+
 
     # -------------------------
     # Helpers LazyPredict

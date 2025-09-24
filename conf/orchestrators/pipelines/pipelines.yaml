@@ -1,21 +1,18 @@
 # conf/orchestrators/pipelines.yaml
 package: orchestrators.pipelines
-
 enabled: true
 out_dir: "outputs/mlp/pipelines_cv"
+active: ["dl_dense_auto"]
 
-active: ["lin_svc"]
-
-# Configuration de la recherche d’hyperparamètres (déclarative)
 cv:
-  type: grid                # grid | random | halving_grid | halving_random
-  n_iter: 10                # utilisé si type ∈ {random, halving_random}
-  factor: 2                 # utilisé si type ∈ {halving_grid, halving_random}
-  scoring:                  # str | liste | mapping {'f1': 'f1', ...}
+  type: grid
+  n_iter: 10
+  factor: 2
+  scoring:
     f1: f1
     roc_auc: roc_auc
-  refit: f1                 # métrique utilisée pour refit si scoring multiple
-  cv_folds: 5               # alias de n_splits
+  refit: f1
+  cv_folds: 5
   shuffle: true
   random_state: 42
   n_jobs: 4
@@ -23,192 +20,189 @@ cv:
   return_train_score: true
   error_score: "raise"
 
-# Politique "auto" (fallback) pour ColumnTransformer si aucune règle colonne
 policy:
-  strategy: auto            # auto | none
+  strategy: auto
   numeric:
-    scaler: auto            # auto | StandardScaler | RobustScaler | MinMaxScaler
+    scaler: auto
     robust_outlier_iqr: 3.0
   categorical:
-    encoder: auto           # auto | OneHotEncoder | TargetEncoder | Hashing
+    encoder: auto
     max_onehot_cardinality: 20
     handle_unknown: ignore
     min_frequency: 0.01
 
 pipelines:
-  # SVC linéaire + PCA, avec imputation et scaling dans le CT (première étape)
-  - name: lin_svc
-    enabled: true
-    steps:
-      preprocess:
+
+- name: lin_svc
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
         enabled: true
-        column_transformer:
-          enabled: true
-          policy: auto
-          # IMPORTANT: imputation dans le CT pour que la PCA ne voie pas de NaN
-          numeric:
-            imputer: simple          # SimpleImputer(strategy="median") côté factory
-            scaler: StandardScaler
-          categorical:
-            imputer: simple          # SimpleImputer(strategy="most_frequent") côté factory
-            encoder: OneHotEncoder   # OneHotEncoder(handle_unknown=ignore, min_frequency=0.01)
-      reduction:
-        type: pca
-        params:
-          n_components: [10, 20, 40]
-      estimator:
-        type: "sklearn.svm.SVC"
-        params:
-          C: [0.1, 1.0, 10.0]
-          kernel: ["linear"]
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+    reduction:
+      type: pca
+      params:
+        n_components: [10, 20, 40]
+    estimator:
+      type: "sklearn.svm.SVC"
+      params:
+        C: [0.1, 1.0, 10.0]
+        kernel: ["linear"]
 
-  # RandomForest
-  - name: rf_grid
-    enabled: true
-    steps:
-      preprocess:
+- name: rf_grid
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
         enabled: true
-        column_transformer:
-          enabled: true
-          policy: auto
-          numeric:
-            imputer: simple          # SimpleImputer(strategy="median") côté factory
-            scaler: StandardScaler
-          categorical:
-            imputer: simple          # SimpleImputer(strategy="most_frequent") côté factory
-            encoder: OneHotEncoder   # OneHotEncoder(handle_unknown=ignore, min_frequency=0.01)
-            handle_unknown: ignore
-            min_frequency: 0.01            
-      estimator:
-        type: "sklearn.ensemble.RandomForestClassifier"
-        params:
-          n_estimators: [10, 20]
-          max_depth: [null, 5, 10]
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+    estimator:
+      type: "sklearn.ensemble.RandomForestClassifier"
+      params:
+        n_estimators: [10, 20]
+        max_depth: [null, 5, 10]
 
-  # SVC RBF en Randomized/HalvingRandom: même logique de CT avec imputation interne
-  - name: svc_random
-    enabled: false
-    steps:
-      preprocess:
+- name: svc_random
+  enabled: false
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
         enabled: true
-        column_transformer:
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+    estimator:
+      type: "sklearn.svm.SVC"
+      params:
+        kernel: ["rbf"]
+      distributions:
+        C: { dist: loguniform, low: 1e-3, high: 1e2 }
+        gamma: { dist: loguniform, low: 1e-4, high: 1e-1 }
+
+- name: tpot_auto
+  enabled: false
+  steps: {}
+  automl:
+    library: tpot
+    name: tpot_auto
+    tpot:
+      scoring: f1_weighted
+      cv: 5
+      verbose: 4
+      verbosity: 4
+      generations: 5
+      population_size: 50
+      preprocessing: true
+      use_dask: true
+      n_workers: 4
+      threads_per_worker: 1
+      memory_limit: "2GB"
+      wait_for_workers: 4
+      wait_timeout_s: 30
+      export_best_pipeline: true
+      export_path: "outputs/mlp/automl/tpot_best_pipeline.py"
+
+- name: lazy_cls
+  enabled: false
+  automl:
+    library: lazypredict
+    name: "lazy_default"
+    lazy:
+      include: []
+      exclude: []
+      custom_metric: null
+      cv: 5
+      n_jobs: -1
+      verbose: 0
+      top_n: 25
+      save_table: true
+      table_path: "outputs/mlp/automl/lazy_results.csv"
+
+- name: dl_dense_auto
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
+        enabled: true
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+  automl:
+    library: dl
+    name: dl_dense_auto
+    dl:
+      backend: keras
+      model:
+        type: sequential
+        input_shape: null
+        task: binary
+        n_classes: 2
+        auto_output: true
+        layers:
+          - type: Dense
+            params: { units: 256, activation: relu }
+          - type: Dropout
+            params: { rate: 0.2 }
+          - type: Dense
+            params: { units: 128, activation: relu }
+      compile:
+        optimizer: { name: adam, lr: 0.001 }
+        loss: auto
+        metrics: [accuracy, AUC]
+      fit:
+        epochs: 50
+        batch_size: 64
+        validation_split: 0.2
+        verbose: 1
+      callbacks:
+        early_stopping:
           enabled: true
-          policy: auto
-          numeric:
-            imputer: simple
-            scaler: StandardScaler
-          categorical:
-            imputer: simple
-            encoder: OneHotEncoder
-            handle_unknown: ignore
-            min_frequency: 0.01
-      estimator:
-        type: "sklearn.svm.SVC"
-        params:
-          kernel: ["rbf"]
-        distributions:
-          C:     { dist: loguniform, low: 1e-3, high: 1e2 }
-          gamma: { dist: loguniform, low: 1e-4, high: 1e-1 }
-
-  # AutoML exécuté comme un pipeline supplémentaire (TPOT)
-  - name: tpot_auto
-    enabled: false
-    steps: {}
-    automl:
-      library: tpot
-      name: tpot_auto
-      tpot:
-        # Compatibilité TPOT 1.x et 2.x
-        scoring: f1_weighted
-        cv: 5
-        verbose: 4          # TPOT 2.x
-        verbosity: 4        # TPOT 1.x (fallback)
-        generations: 5
-        population_size: 50
-
-        # Prétraitement automatique TPOT 2.x (encodage one-hot, etc.)
-        preprocessing: true
-
-        # Parallélisation locale Dask (TPOT 2.x via client)
-        use_dask: true
-        n_workers: 4
-        threads_per_worker: 1
-        memory_limit: "2GB"
-        wait_for_workers: 4
-        wait_timeout_s: 30
-
-        # Export du meilleur pipeline (code .py si dispo, sinon .pkl)
-        export_best_pipeline: true
-        export_path: "outputs/mlp/automl/tpot_best_pipeline.py"
-
-
-
-  # AutoML exécuté comme un pipeline supplémentaire (LazyClassifier)
-  - name: lazy_cls
-    enabled: false
-    automl:
-      library: lazypredict
-      name: "lazy_default"
-      lazy:
-        include: []         # au lieu de null
-        exclude: []         # au lieu de null
-        custom_metric: null # f1 ici n'est pas une fonction
-        cv: 5
-        n_jobs: -1
-        verbose: 0
-        top_n: 25
-        save_table: true
-        table_path: "outputs/mlp/automl/lazy_results.csv"
-
-  - name: dl_dense_auto
-    enabled: false
-    steps: {}
-    automl:
-      library: dl
-      name: dl_dense_auto
-      dl:
-        backend: keras
-        model:
-          type: sequential           # sequential | functional
-          input_shape: [100]
-          # Inférence de la dernière couche selon la tâche:
-          task: binary               # binary | multiclass
-          n_classes: 2               # si multiclass; ignoré si binary
-          auto_output: true          # ajoute Dense finale auto si non fournie
-          layers:
-            - Dense: {units: 256, activation: relu}
-            - Dropout: {rate: 0.2}
-            - Dense: {units: 128, activation: relu}
-            # Si auto_output=true et task=binary, ajoute Dense(1, activation='sigmoid')
-            # Sinon, pour n_classes=2, Dense(2, activation='softmax')
-        compile:
-          optimizer: {name: adam, lr: 0.001}    # lr est mappé vers learning_rate
-          loss: auto                            # auto: bce si binaire, scc si multiclasses
-          metrics: [accuracy, AUC]              # métriques usuelles Keras
-        fit:
-          epochs: 50
-          batch_size: 64
-          validation_split: 0.2
-          verbose: 1
-        callbacks:
-          early_stopping:
-            enabled: true
-            monitor: val_loss
-            patience: 10
-            restore_best_weights: true
-          reduce_lr:
-            enabled: true
-            monitor: val_loss
-            factor: 0.5
-            patience: 5
-            min_lr: 1e-6
-          checkpoint:
-            enabled: true
-            filepath: outputs/dl/best_model.keras
-            monitor: val_loss
-            save_best_only: true
-        export:
-          save_model: true
-          path: outputs/dl/final_model.keras
-          save_history_csv: outputs/dl/history.csv
-
+          monitor: val_loss
+          patience: 10
+          restore_best_weights: true
+        reduce_lr:
+          enabled: true
+          monitor: val_loss
+          factor: 0.5
+          patience: 5
+          min_lr: 1e-6
+        checkpoint:
+          enabled: true
+          filepath: outputs/dl/best_model.keras
+          monitor: val_loss
+          save_best_only: true
+      export:
+        save_model: true
+        path: outputs/dl/final_model.keras
+        save_history_csv: outputs/dl/history.csv

@@ -4,61 +4,81 @@ from typing import Any
 
 from sklearn.decomposition import PCA
 
-# Import optionnel d'UMAP avec nom de classe isolé pour contenter mypy/pylance
-try:
-    import umap  # type: ignore
-
-    UMAP_CLS = umap.UMAP
-except Exception:  # pragma: no cover
-    UMAP_CLS = None  # type: ignore[assignment]
-
 
 class ReducersFactory:
     TYPE_PCA = "pca"
     TYPE_UMAP = "umap"
+    TYPE_PARAM_UMAP = "parametric_umap"  # alias interne accepté ci-dessous
     PASSTHROUGH = "passthrough"
+
+    @staticmethod
+    def _get_umap():
+        """
+        Import paresseux de umap-learn uniquement lorsque requis.
+        Évite d'importer umap au niveau module car umap expose ParametricUMAP
+        dans son __init__, ce qui peut tracter TensorFlow.
+        """
+        try:
+            import importlib
+
+            return importlib.import_module("umap")
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(
+                "UMAP indisponible; installez umap-learn>=0.5,<0.6 ou désactivez la réduction UMAP."
+            ) from e
 
     @staticmethod
     def make_reducer(cfg: dict[str, Any] | None, random_state: int = 42):
         """
-        Build a dimensionality reduction transformer from a spec:
+        Construit un réducteur dimensionnel depuis une spec:
         - {"type": "pca", "params": {...}}
         - {"type": "umap", "params": {...}}
-        Returns "passthrough" when no reduction is requested.
+        - {"type": "parametric_umap", "params": {...}}  # si TensorFlow dispo
+
+        Retourne "passthrough" si aucune réduction n'est demandée.
         """
         if not cfg:
             return ReducersFactory.PASSTHROUGH
 
         rtype = cfg.get("type")
-
-        # Assurer un dict typé pour apaiser l'analyse statique
         params_obj = cfg.get("params")
         params_cfg: dict[str, Any] = params_obj if isinstance(params_obj, dict) else {}
 
-        # Ne passer que les scalaires à l'estimateur de base; garder les listes pour la grille
-        base_params: dict[str, Any] = {}
-        for k, v in params_cfg.items():
-            if isinstance(v, (str, int, float, bool)) or v is None:
-                base_params[k] = v
+        # Ne passer que des scalaires à l'estimateur (les listes sont pour la grille de CV)
+        base_params: dict[str, Any] = {
+            k: v
+            for k, v in params_cfg.items()
+            if isinstance(v, (str, int, float, bool)) or v is None
+        }
 
         if rtype == ReducersFactory.TYPE_PCA:
-            # Pertinent si svd_solver="randomized"; inoffensif sinon sur sklearn récent
+            # pertinent surtout si svd_solver="randomized"
             base_params.setdefault("random_state", random_state)
             return PCA(**base_params)
 
         if rtype == ReducersFactory.TYPE_UMAP:
-            if UMAP_CLS is None:
-                raise RuntimeError("UMAP not installed")
+            umap = ReducersFactory._get_umap()
             base_params.setdefault("random_state", random_state)
-            return UMAP_CLS(**base_params)
+            return umap.UMAP(**base_params)
+
+        if rtype in (ReducersFactory.TYPE_PARAM_UMAP, "pumap"):
+            umap = ReducersFactory._get_umap()
+            base_params.setdefault("random_state", random_state)
+            try:
+                return umap.ParametricUMAP(**base_params)
+            except Exception as e:  # noqa: BLE001
+                raise RuntimeError(
+                    "ParametricUMAP requiert un TensorFlow compatible; vérifiez requirements et installation."
+                ) from e
 
         return ReducersFactory.PASSTHROUGH
 
     @staticmethod
     def from_spec(cfg: dict[str, Any] | None, random_state: int = 42):
-        """Alias kept for backward compatibility."""
+        """Alias rétro-compatible."""
         return ReducersFactory.make_reducer(cfg, random_state)
 
     @staticmethod
     def instantiate_estimator(cfg: dict[str, Any] | None, random_state: int = 42):
+        """Alias rétro-compatible."""
         return ReducersFactory.make_reducer(cfg, random_state)
