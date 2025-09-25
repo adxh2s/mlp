@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Final
 
 # Logger
-LOGGER_NAME: Final = "mlp.modeling.pipelines.evaluator"
+LOGGER_NAME: Final = "mlp.modeling.pipeline.evaluator"
 
 # CV keys
 CV_KEY: Final = "cv"
@@ -70,7 +70,7 @@ FILE_EXT: Final = ".csv"
 DEFAULT_REFIT: Final = "f1"
 DEFAULT_PIPELINE_NAME: Final = "pipeline"
 
-# Messages
+# Message
 MSG_UNSUPPORTED_CV: Final = "Unsupported cv.type="
 MSG_DASK_UNAVAILABLE: Final = "Dask indisponible; exécution TPOT sans client."
 MSG_DASK_FAIL: Final = "Échec Dask LocalCluster/Client: "

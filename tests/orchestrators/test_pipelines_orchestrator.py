@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.orchestrators.pipelines import PipelineOrchestrator
+from src.orchestrators.pipeline import PipelineOrchestrator
 
 
 class DummyMsg:
@@ -65,8 +65,8 @@ def _lazy_spec():
     }
 
 
-def _cfg_like_pydantic(pipelines, active=None, cv=None, policy=None, enabled=True):
-    # Simule PipelinesConfig Pydantic minimal avec model_dump sur les items
+def _cfg_like_pydantic(pipeline, active=None, cv=None, policy=None, enabled=True):
+    # Simule PipelineConfig Pydantic minimal avec model_dump sur les items
     def _wrap(spec):
         return SimpleNamespace(model_dump=lambda s=spec: s)
 
@@ -87,7 +87,7 @@ def _cfg_like_pydantic(pipelines, active=None, cv=None, policy=None, enabled=Tru
             "numeric": {"scaler": "StandardScaler"},
             "categorical": {"encoder": "OneHotEncoder", "handle_unknown": "ignore"},
         },
-        pipelines=[_wrap(p) for p in pipelines],
+        pipeline=[_wrap(p) for p in pipeline],
     )
 
 
@@ -100,11 +100,11 @@ def _make_numeric_xy(n=100, p=6, seed=0):
 
 def test_run_single_pipeline_grid(tmp_path):
     X, y = _make_numeric_xy()
-    cfg = _cfg_like_pydantic(pipelines=[_svc_spec("svc_grid")], active=["svc_grid"])
+    cfg = _cfg_like_pydantic(pipeline=[_svc_spec("svc_grid")], active=["svc_grid"])
     orch = PipelineOrchestrator(
         cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out = orch.run(X, y)
     assert "results" in out and len(out["results"]) == 1
     assert out["results"][0]["name"] == "svc_grid"
@@ -117,11 +117,11 @@ def test_respects_active_list_and_enabled(tmp_path):
     spec_a = _svc_spec("svc_a")
     spec_b = _svc_spec("svc_b")
     spec_b["enabled"] = False
-    cfg = _cfg_like_pydantic(pipelines=[spec_a, spec_b], active=["svc_a"])
+    cfg = _cfg_like_pydantic(pipeline=[spec_a, spec_b], active=["svc_a"])
     orch = PipelineOrchestrator(
         cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out = orch.run(X, y)
     names = [r["name"] for r in out["results"]]
     assert names == ["svc_a"]
@@ -131,12 +131,12 @@ def test_disable_column_transformer(tmp_path):
     # Données purement numériques pour tester sans ColumnTransformer
     X, y = _make_numeric_xy()
     cfg = _cfg_like_pydantic(
-        pipelines=[_svc_spec("svc_no_ct", ct_enabled=False)], active=["svc_no_ct"]
+        pipeline=[_svc_spec("svc_no_ct", ct_enabled=False)], active=["svc_no_ct"]
     )
     orch = PipelineOrchestrator(
         cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out = orch.run(X, y)
     assert out["results"][0]["name"] == "svc_no_ct"
     assert out["results"][0]["best_score"] is not None
@@ -147,7 +147,7 @@ def test_random_and_halving_random(tmp_path):
     spec = _random_spec()
     # RandomizedSearchCV
     cfg_random = _cfg_like_pydantic(
-        pipelines=[spec],
+        pipeline=[spec],
         active=["svc_random"],
         cv={"type": "random", "n_iter": 8, "cv_folds": 3, "verbose": 0},
     )
@@ -157,20 +157,20 @@ def test_random_and_halving_random(tmp_path):
         random_state=0,
         ctx={"project_dir": str(tmp_path)},
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out_rnd = orch.run(X, y)
     assert out_rnd["results"][0]["best_score"] is not None
 
     # HalvingRandomSearchCV
     cfg_halv = _cfg_like_pydantic(
-        pipelines=[spec],
+        pipeline=[spec],
         active=["svc_random"],
         cv={"type": "halving_random", "n_iter": 8, "factor": 2, "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
         cfg=cfg_halv, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out_halv = orch.run(X, y)
     assert out_halv["results"][0]["best_score"] is not None
 
@@ -201,14 +201,14 @@ def test_automl_tpot_branch(tmp_path):
         },
     }
     cfg = _cfg_like_pydantic(
-        pipelines=[tpot_spec],
+        pipeline=[tpot_spec],
         active=["tpot_auto"],
         cv={"type": "grid", "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
         cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out = orch.run(X, y)
     assert out["results"][0]["name"] == "tpot_auto"
     assert out["results"][0]["best_score"] is not None
@@ -221,14 +221,14 @@ def test_automl_tpot_branch(tmp_path):
 def test_automl_lazy_branch(tmp_path):
     X, y = _make_numeric_xy(n=120, p=8, seed=1)
     cfg = _cfg_like_pydantic(
-        pipelines=[_lazy_spec()],
+        pipeline=[_lazy_spec()],
         active=["lazy_cls"],
         cv={"type": "grid", "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
         cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
     )
-    orch.attach_messages(DummyMsg())
+    orch.attach_message(DummyMsg())
     out = orch.run(X, y)
     assert out["results"][0]["name"] == "lazy_cls"
     assert out["results"][0]["cv_results_path"]

@@ -14,12 +14,12 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, RobustScaler, StandardScaler
 
-from src.modeling.pipelines.consts import AUTO_KEY
+from src.modeling.pipeline.consts import AUTO_KEY
 from src.preprocessing.reducers import ReducersFactory
 from src.preprocessing.selectors import SelectorsFactory
 
 """
-Fabrique de pipelines: construit sklearn.Pipeline, ColumnTransformer,
+Fabrique de pipeline: construit sklearn.Pipeline, ColumnTransformer,
 et normalise param_grid/param_distributions à partir d’une spécification YAML.
 
 Principes clés:
@@ -92,7 +92,7 @@ DIST_UNIFORM = "uniform"
 ALIAS_SVC = {"svc", "svm"}
 ALIAS_RF = {"rf", "random_forest", "randomforestclassifier"}
 
-# Messages d’erreur
+# Message d’erreur
 MSG_UNSUPPORTED_DIST = "Unsupported dist: {name}"
 MSG_REQ_ESTIMATOR_TYPE = "Estimator type is required in spec.steps.estimator.type"
 MSG_UNKNOWN_ALIAS = "Unknown estimator alias/type: {t}"

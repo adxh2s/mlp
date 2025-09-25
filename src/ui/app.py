@@ -8,10 +8,10 @@ from omegaconf import OmegaConf
 from omegaconf.errors import OmegaConfBaseException
 
 from src.instrumentation.config_manager import ConfigManager
-from src.instrumentation.messages_manager import MessageManager
-from src.instrumentation.messages_taxonomy import STREAMLIT_INIT
+from src.instrumentation.message_manager import MessageManager
+from src.instrumentation.message_taxonomy import STREAMLIT_INIT
 from src.orchestrators.config import ConfigOrchestrator
-from src.orchestrators.messages import MessagesOrchestrator
+from src.orchestrators.message import MessageOrchestrator
 from src.ui.constants import (
     DEFAULT_OUTPUTS,
     DEFAULT_PROJECT,
@@ -23,7 +23,7 @@ from src.ui.constants import (
     KEY_PAGE_EDA,
     KEY_PAGE_HOME,
     KEY_PAGE_PIPES,
-    KEY_PAGE_REPORTS,
+    KEY_PAGE_REPORT,
     KEY_PROJECT_LABEL,
     KEY_ROOT_PREFIX,
     KEY_SIDEBAR_SECTION,
@@ -31,11 +31,11 @@ from src.ui.constants import (
 )
 
 """
-Class-based Streamlit app using ConfigOrchestrator + MessagesOrchestrator
+Class-based Streamlit app using ConfigOrchestrator + MessageOrchestrator
 and a MessageManager for UI i18n under the "streamlit_app" domain.
 
 - Loads Hydra config safely with explicit typing to satisfy Pylance.
-- Emits a localized init event via MessagesOrchestrator.
+- Emits a localized init event via MessageOrchestrator.
 - Resolves UI labels via MessageManager with robust fallbacks.
 - Uses modern multipage API: st.Page + st.navigation.
 """
@@ -60,12 +60,12 @@ def _load_cfg_safe(conf_path: Path) -> tuple[dict[str, Any], str]:
 
 
 class MLPStreamlitApp:
-    """Streamlit app wrapper managing config, messages, and UI i18n."""
+    """Streamlit app wrapper managing config, message, and UI i18n."""
 
     def __init__(self) -> None:
         """Initialize placeholders for orchestrators and UI MessageManager."""
         self.cfg_orch: ConfigOrchestrator | None = None
-        self.msg_orch: MessagesOrchestrator | None = None
+        self.msg_orch: MessageOrchestrator | None = None
         self.ui_mm: MessageManager | None = None
 
     def _ui(self, key: str, **params: Any) -> str:
@@ -98,7 +98,7 @@ class MLPStreamlitApp:
             and "ui_mm" in st.session_state
         ):
             self.cfg_orch = cast(ConfigOrchestrator, st.session_state["cfg_orch"])
-            self.msg_orch = cast(MessagesOrchestrator, st.session_state["msg_orch"])
+            self.msg_orch = cast(MessageOrchestrator, st.session_state["msg_orch"])
             self.ui_mm = cast(MessageManager, st.session_state["ui_mm"])
             return
 
@@ -120,7 +120,7 @@ class MLPStreamlitApp:
                     },
                     "orchestrators": {
                         "config": {"enabled": True},
-                        "messages": {
+                        "message": {
                             "enabled": True,
                             "locale": "fr",
                             "locales_dir": "i18n/locales",
@@ -130,7 +130,7 @@ class MLPStreamlitApp:
                                 "file",
                                 "data",
                                 "eda",
-                                "pipelines",
+                                "pipeline",
                                 "report",
                                 "streamlit_app",
                             ],
@@ -151,22 +151,22 @@ class MLPStreamlitApp:
 
         cfg_mgr = ConfigManager(OmegaConf.create(raw))
         self.cfg_orch = ConfigOrchestrator(cfg_mgr)
-        self.msg_orch = MessagesOrchestrator(
+        self.msg_orch = MessageOrchestrator(
             cfg_mgr,
             logger_manager=self.cfg_orch.get_logger_manager(),
         )
 
-        # UI MessageManager uses messages orchestrator locale/dir
+        # UI MessageManager uses message orchestrator locale/dir
         locales_dir = Path(self.cfg_orch.get_config_manager().project_root) / cast(
             str,
             cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {}))
-            .get("messages", {})
+            .get("message", {})
             .get("locales_dir", "i18n/locales"),
         )
         default_locale = cast(
             str,
             cast(dict[str, Any], cfg_mgr.raw.get("orchestrators", {}))
-            .get("messages", {})
+            .get("message", {})
             .get("locale", "fr"),
         )
         self.ui_mm = MessageManager(locales_dir, default_locale=default_locale)  # type: ignore[arg-type]
@@ -195,14 +195,14 @@ class MLPStreamlitApp:
 
     def navigation(self) -> None:
         """Define and run programmatic navigation."""
-        import streamlit_pages.pipelines as pipes  # noqa: PLC0415
-        from streamlit_pages import eda, home, reports  # noqa: PLC0415
+        import streamlit_pages.pipeline as pipes  # noqa: PLC0415
+        from streamlit_pages import eda, home, report  # noqa: PLC0415
 
         pg_home = st.Page(home.run, title=self._ui(KEY_PAGE_HOME), icon="🏠", default=True)
         pg_eda = st.Page(eda.run, title=self._ui(KEY_PAGE_EDA), icon="🧭")
         pg_pipes = st.Page(pipes.run, title=self._ui(KEY_PAGE_PIPES), icon="🧪")
-        pg_reports = st.Page(reports.run, title=self._ui(KEY_PAGE_REPORTS), icon="📄")
-        st.navigation([pg_home, pg_eda, pg_pipes, pg_reports]).run()
+        pg_report = st.Page(report.run, title=self._ui(KEY_PAGE_REPORT), icon="📄")
+        st.navigation([pg_home, pg_eda, pg_pipes, pg_report]).run()
 
     def run(self) -> None:
         """Entrypoint to render and run the app."""

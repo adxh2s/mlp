@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 """
-MessageManager: charge et résout des messages localisés via gettext.
+MessageManager: charge et résout des message localisés via gettext.
 
-- Locales attendues sous i18n/locales/<lang>/LC_MESSAGES/<domain>.mo
+- Locales attendues sous i18n/locales/<lang>/LC_MESSAGE/<domain>.mo
 - Fallback sur 'en' si le domaine/langue est manquant, sinon identité.
 """
 

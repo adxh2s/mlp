@@ -29,7 +29,7 @@ def _write_min_cfg(tmp_path: Path) -> Path:
     """
     Write a minimal valid config file into tmp_path/conf/config.yaml.
 
-    The config keeps only the essentials and includes the messages
+    The config keeps only the essentials and includes the message
     orchestrator with the streamlit_app domain but without any .mo files.
     """
     conf_dir = tmp_path / "conf"
@@ -39,7 +39,7 @@ def _write_min_cfg(tmp_path: Path) -> Path:
             "project": {"name": "demo", "random_state": 42, "output_dir": "outputs"},
             "orchestrators": {
                 "config": {"enabled": True},
-                "messages": {
+                "message": {
                     "enabled": True,
                     "locale": "fr",
                     "locales_dir": "i18n/locales",

@@ -3,6 +3,7 @@ services:
     build: .
     container_name: mlp_app
     environment:
+      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - MLP_OUTPUTS_DIR=/app/outputs
       - MLP_PROJECT_NAME=nba_project
       - MLP_NOTEBOOKS_DIR=/app/notebooks
@@ -24,6 +25,8 @@ services:
     build: .
     container_name: mlp_notebooks
     working_dir: /app
+    environment:
+      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ./:/app
       - notebooks:/app/notebooks
@@ -40,6 +43,8 @@ services:
     build: .
     container_name: mlp_voila
     working_dir: /app
+    environment:
+      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ./:/app
       - notebooks:/app/notebooks

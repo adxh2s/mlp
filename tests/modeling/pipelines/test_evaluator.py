@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.datasets import make_classification
 
-from src.modeling.pipelines.evaluator import PipelineEvaluator
+from src.modeling.pipeline.evaluator import PipelineEvaluator
 
 
 def small_xy(n=120, p=6, random_state=0):

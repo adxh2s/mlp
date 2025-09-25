@@ -1,7 +1,7 @@
 project:
   name: mlp
   description: >
-    mlp: EDA → Pipelines → Rapports (Hydra/Pydantic/Jinja), Streamlit multipages
+    mlp: EDA → Pipeline → Rapports (Hydra/Pydantic/Jinja), Streamlit multipages
     avec instrumentation centralisée (configuration + logging), et génération de rapports.
 
   directories:
@@ -24,12 +24,12 @@ project:
             file:
               children:
                 file.yaml: "Répertoires, extensions, copie/compression des fichiers"
-            messages:
+            message:
               children:
-                messages.yaml: "Locale, répertoire des locales, domaines de messages"
-            pipelines:
+                message.yaml: "Locale, répertoire des locales, domaines de message"
+            pipeline:
               children:
-                pipelines.yaml: "Pipelines actifs, CV, politique, specs de pipelines"
+                pipeline.yaml: "Pipeline actifs, CV, politique, specs de pipeline"
             report:
               children:
                 report.yaml: "Formats de rendu et options de rapport"
@@ -66,10 +66,10 @@ project:
             logger_manager.py: "Gestionnaire de logs (stdlib)"
             logger_manager_structlog.py: "Gestionnaire structlog"
             logger_mixin.py: "Mixin d’injection self.log"
-            messages_manager.py: "Gestion de messages localisés"
-            messages_taxonomy.py: "Taxonomie de messages"
+            message_manager.py: "Gestion de message localisés"
+            message_taxonomy.py: "Taxonomie de message"
         modeling:
-          description: Construction/évaluation pipelines + DL optionnel.
+          description: Construction/évaluation pipeline + DL optionnel.
           children:
             dl:
               description: Composants Deep Learning (optionnels).
@@ -78,14 +78,14 @@ project:
                 consts.py: "Constantes DL"
                 factory.py: "Fabriques de modèles Keras"
                 trainer.py: "Boucles d’entraînement et callbacks"
-            pipelines:
-              description: Pipelines scikit-learn.
+            pipeline:
+              description: Pipeline scikit-learn.
               children:
-                consts.py: "Constantes pipelines"
+                consts.py: "Constantes pipeline"
                 evaluator.py: "GridSearchCV/StratifiedKFold, export cv_results_.csv"
                 factory.py: "Assemblage Pipeline + grilles"
         orchestrators:
-          description: Coordination EDA→Pipelines→Rapport (+ app/config).
+          description: Coordination EDA→Pipeline→Rapport (+ app/config).
           children:
             app.py: "Entrée orchestrateur d’application"
             base.py: "Interface IOrchestrator"
@@ -95,8 +95,8 @@ project:
             file.py: "Orchestrateur de fichiers"
             general.py: "Orchestrateur général"
             logger.py: "Orchestrateur de logs"
-            messages.py: "Orchestrateur de messages"
-            pipelines.py: "Orchestrateur de pipelines"
+            message.py: "Orchestrateur de message"
+            pipeline.py: "Orchestrateur de pipeline"
             report.py: "Orchestrateur de rapports"
         preprocessing:
           description: Pré-traitements.
@@ -121,8 +121,8 @@ project:
       children:
         home.py: "Accueil"
         eda.py: "EDA + YData (iframe / génération ad hoc)"
-        pipelines.py: "Résultats CV et téléchargements"
-        reports.py: "Rapports rendus (HTML/MD)"
+        pipeline.py: "Résultats CV et téléchargements"
+        report.py: "Rapports rendus (HTML/MD)"
         utils_runs.py: "Utilitaires de runs affichés côté UI"
 
     data:
@@ -132,7 +132,7 @@ project:
         out: "Sorties/exports (traitées)"
 
     outputs:
-      description: Artefacts générés (EDA, pipelines, rapports).
+      description: Artefacts générés (EDA, pipeline, rapports).
 
   files:
     main.py: "Entrée Hydra"

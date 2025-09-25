@@ -34,10 +34,10 @@ def test_general_orchestrator_with_file(tmp_path: Path) -> None:
                     "save_input_file_compression": False,
                 },
                 "eda": {"enabled": True, "profile": {"minimal": True}},
-                "pipelines": {
+                "pipeline": {
                     "enabled": True,
                     "cv": {"cv_folds": 2, "scoring": ["f1"]},
-                    "pipelines": [
+                    "pipeline": [
                         {
                             "name": "svc_small",
                             "steps": {
@@ -87,8 +87,8 @@ def test_general_orchestrator_with_file(tmp_path: Path) -> None:
 
     if "eda" not in out:
         raise AssertionError("'eda' section missing in orchestrator output")  # noqa: S101
-    if "pipelines" not in out:
-        raise AssertionError("'pipelines' section missing in orchestrator output")  # noqa: S101
+    if "pipeline" not in out:
+        raise AssertionError("'pipeline' section missing in orchestrator output")  # noqa: S101
     if "report" not in out:
         raise AssertionError("'report' section missing in orchestrator output")  # noqa: S101
     if not isinstance(out["report"].get("artifacts", []), list):

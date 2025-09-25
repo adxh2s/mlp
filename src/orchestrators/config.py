@@ -9,13 +9,13 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import CONFIG_ERROR, CONFIG_READY
-from src.orchestrators.messages import MessagesOrchestrator
+from src.instrumentation.message_taxonomy import CONFIG_ERROR, CONFIG_READY
+from src.orchestrators.message import MessageOrchestrator
 
 """
 Config orchestrator: centralize ConfigManager access and project context.
 - Loads and validates the AppConfig once.
-- Builds LoggerManager and MessagesOrchestrator.
+- Builds LoggerManager and MessageOrchestrator.
 - Computes a Hydra-safe project context (ctx) with absolute paths.
 """
 
@@ -25,7 +25,7 @@ DOMAIN = "config"
 
 
 class ConfigOrchestrator(LoggerMixin):
-    """Load config, build logger/messages, and compute project context."""
+    """Load config, build logger/message, and compute project context."""
 
     def __init__(self, config_manager: ConfigManager, logger_manager: LoggerManager | None = None) -> None:
         self.config_manager = config_manager
@@ -34,7 +34,7 @@ class ConfigOrchestrator(LoggerMixin):
         self.lm.configure()
         # cast pour satisfaire le protocole SupportsGetLogger de LoggerMixin
         self._init_logger(cast(Any, self.lm))
-        self.msg = MessagesOrchestrator(config_manager, logger_manager=self.lm)
+        self.msg = MessageOrchestrator(config_manager, logger_manager=self.lm)
 
         try:
             self.app_cfg = self.config_manager.load()
@@ -57,9 +57,9 @@ class ConfigOrchestrator(LoggerMixin):
         data_out = (data_root / file_cfg.out_dir).resolve()
 
         eda_dir = (project_dir / "eda").resolve()
-        reports_dir = (project_dir / "reports").resolve()
+        report_dir = (project_dir / "report").resolve()
 
-        for d in (project_dir, data_in, data_out, eda_dir, reports_dir):
+        for d in (project_dir, data_in, data_out, eda_dir, report_dir):
             d.mkdir(parents=True, exist_ok=True)
 
         self.ctx = {
@@ -70,7 +70,7 @@ class ConfigOrchestrator(LoggerMixin):
             "data_in": str(data_in),
             "data_out": str(data_out),
             "eda_dir": str(eda_dir),
-            "reports_dir": str(reports_dir),
+            "report_dir": str(report_dir),
         }
 
         self.msg.emit(DOMAIN, CONFIG_READY, project_name=project_name, output_dir=str(outputs_root))

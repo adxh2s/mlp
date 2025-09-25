@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from src.modeling.dl.factory import get_keras
-from src.modeling.pipelines.evaluator import PipelineEvaluator
+from src.modeling.pipeline.evaluator import PipelineEvaluator
 
 
 @pytest.mark.skipif(get_keras() is None, reason="TensorFlow/Keras not installed")

@@ -7,22 +7,22 @@ from src.config.schemas import AppConfig, ReportConfig
 from src.datavisualization.report_renderer import ReportRenderer
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import REPORT_DONE, REPORT_START
-from src.orchestrators.messages import MessagesOrchestrator
+from src.instrumentation.message_taxonomy import REPORT_DONE, REPORT_START
+from src.orchestrators.message import MessageOrchestrator
 
 """
-Report orchestrator: render consolidated reports and emit events.
+Report orchestrator: render consolidated report and emit events.
 """
 
 # Constants
-REPORTS_DIR = "reports"
+REPORT_DIR = "report"
 TEMPLATES_DIR = "src/templates"
 LOGGER_NAME = "mlp.orchestrators.report"
 DOMAIN = "report"
 
 
 class ReportOrchestrator(LoggerMixin):
-    """Render consolidated reports from EDA and pipelines outputs."""
+    """Render consolidated report from EDA and pipeline outputs."""
 
     def __init__(
         self,
@@ -36,11 +36,11 @@ class ReportOrchestrator(LoggerMixin):
         self.app_cfg = app_cfg
         self.ctx = ctx or {}
 
-        # Resolve out_dir: ctx['reports_dir'] > project_dir/reports
-        if self.ctx.get("reports_dir"):
-            self.out_dir = self.ctx["reports_dir"]
+        # Resolve out_dir: ctx['report_dir'] > project_dir/report
+        if self.ctx.get("report_dir"):
+            self.out_dir = self.ctx["report_dir"]
         else:
-            self.out_dir = os.path.join(project_dir, REPORTS_DIR)
+            self.out_dir = os.path.join(project_dir, REPORT_DIR)
         os.makedirs(self.out_dir, exist_ok=True)
 
         self.renderer = ReportRenderer(TEMPLATES_DIR)
@@ -48,14 +48,14 @@ class ReportOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, logger_manager))
         self.log: Any = getattr(self, "log", None)
 
-        self.msg: MessagesOrchestrator | None = None
+        self.msg: MessageOrchestrator | None = None
 
-    def attach_messages(self, msg: MessagesOrchestrator) -> None:
-        """Attach a MessagesOrchestrator for localized emissions."""
+    def attach_message(self, msg: MessageOrchestrator) -> None:
+        """Attach a MessageOrchestrator for localized emissions."""
         self.msg = msg
 
     def run(self, eda_payload: dict[str, Any], pipe_payload: dict[str, Any]) -> dict[str, Any]:
-        """Render reports and return artifact metadata."""
+        """Render report and return artifact metadata."""
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_START, out_dir=self.out_dir)
         else:

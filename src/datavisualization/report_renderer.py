@@ -9,7 +9,7 @@ import jinja2
 
 
 class ReportRenderer:
-    """Render HTML/Markdown reports from templates and a data context.
+    """Render HTML/Markdown report from templates and a data context.
 
     Uses Jinja2 templates loaded from a filesystem directory to separate
     presentation from logic and to support reusable layouts.
@@ -42,7 +42,7 @@ class ReportRenderer:
         Args:
             project_name: Project display name.
             eda_payload: EDA orchestrator output payload.
-            pipe_payload: Pipelines orchestrator output payload.
+            pipe_payload: Pipeline orchestrator output payload.
 
         Returns:
             A dictionary with keys project_name, generated_at, eda, results.
@@ -69,14 +69,14 @@ class ReportRenderer:
         eda_payload: dict[str, Any],
         pipe_payload: dict[str, Any],
     ) -> dict[str, Any]:
-        """Render reports in the requested formats and return artifact paths.
+        """Render report in the requested formats and return artifact paths.
 
         Args:
-            out_dir: Output directory for rendered reports.
+            out_dir: Output directory for rendered report.
             project_name: Project display name.
             formats: List of formats to render ("html", "md").
             eda_payload: EDA orchestrator output payload.
-            pipe_payload: Pipelines orchestrator output payload.
+            pipe_payload: Pipeline orchestrator output payload.
 
         Returns:
             A mapping containing a unique report_id and the artifact file paths.

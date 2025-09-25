@@ -12,19 +12,19 @@ from src.config.schemas import FileConfig as FileConfigModel
 from src.instrumentation.file_manager import FileManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import (
+from src.instrumentation.message_taxonomy import (
     FILE_INIT,
     INPUT_FOUND,
     INPUT_PROCESSED,
     NO_INPUT_FILE,
 )
-from src.orchestrators.messages import MessagesOrchestrator
+from src.orchestrators.message import MessageOrchestrator
 
 """
 File orchestrator.
 - Rôle: localiser un fichier d'entrée, l'optionnel copier/compresser pour traçabilité, le lire, et émettre des événements structurés. 
 - Contexte: utilise ctx["data_in"]/ctx["data_out"] si fournis pour les chemins de travail, sinon retombe sur un ancrage Hydra (get_original_cwd). 
-- Journalisation: compatible LoggerManager via LoggerMixin, et peut émettre des messages localisées via MessagesOrchestrator.
+- Journalisation: compatible LoggerManager via LoggerMixin, et peut émettre des message localisées via MessageOrchestrator.
 """
 
 # =========================
@@ -196,7 +196,7 @@ class FileOrchestrator(LoggerMixin):
             self._init_logger(cast(Any, logger_manager))
         else:
             self.log = logging.getLogger(LOGGER_NAME)
-        self.msg: MessagesOrchestrator | None = None
+        self.msg: MessageOrchestrator | None = None
 
         # Résolution des répertoires d'entrée/sortie
         if self.ctx:
@@ -224,8 +224,8 @@ class FileOrchestrator(LoggerMixin):
         cfg = config_manager.model.orchestrators.file
         return cls(cfg, logger_manager=logger_manager, ctx=ctx)
 
-    def attach_messages(self, msg: MessagesOrchestrator) -> None:
-        """Attache l’orchestrateur de messages pour les émissions localisées."""
+    def attach_message(self, msg: MessageOrchestrator) -> None:
+        """Attache l’orchestrateur de message pour les émissions localisées."""
         self.msg = msg
 
     def pick_input_file(self) -> Path | None:

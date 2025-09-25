@@ -17,7 +17,7 @@ from sklearn.pipeline import Pipeline
 from src.instrumentation.logger_mixin import LoggerMixin, SupportsGetLogger
 from src.modeling.dl.config import DLConfig
 from src.modeling.dl.trainer import train_dense
-from src.modeling.pipelines.consts import (
+from src.modeling.pipeline.consts import (
     AUTO_KEY,
     AUTO_LIB,
     AUTO_NAME,
@@ -78,7 +78,7 @@ from src.modeling.pipelines.consts import (
     TPOT_VERBOSE2,
     TPOT_VERBOSITY1,
 )
-from src.modeling.pipelines.factory import PipelineFactory
+from src.modeling.pipeline.factory import PipelineFactory
 
 # Dépendances optionnelles
 try:  # TPOT
@@ -124,7 +124,7 @@ _HALVING_IMPORT_USED = bool(_enable_halving_search_cv)
 
 
 """
-Évaluateur de pipelines ML/DL:
+Évaluateur de pipeline ML/DL:
 - Sélectionne et exécute ML (sklearn + CV) ou DL (Keras) selon la config déclarative.
 - AutoML: TPOT (TPOT1/TPOT2) et LazyPredict, avec export d'artefacts et scores robustes.
 - Dask optionnel pour TPOT2, fermeture sûre des ressources, et logs harmonisés.
@@ -213,7 +213,7 @@ def _safe_close(obj: Any, warn: Callable[[str], None], what: str) -> None:
 class PipelineEvaluator(LoggerMixin):
     """
     Évalue un pipeline ML ou DL selon la configuration déclarative fournie.
-    - ML: pipelines sklearn + CV (Grid/Random/Halving), export des cv_results_.csv.
+    - ML: pipeline sklearn + CV (Grid/Random/Halving), export des cv_results_.csv.
     - DL: modèles Keras séquentiels/fonctionnels via module modeling/dl, export .keras et history.
     """
 

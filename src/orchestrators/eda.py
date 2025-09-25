@@ -10,8 +10,8 @@ from src.datanalysis.eda_profile import EDAProfile
 from src.datanalysis.eda_summary import EDASummary
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import EDA_DONE, EDA_START
-from src.orchestrators.messages import MessagesOrchestrator
+from src.instrumentation.message_taxonomy import EDA_DONE, EDA_START
+from src.orchestrators.message import MessageOrchestrator
 
 """
 EDA orchestrator: YData profile and JSON summary with structured logs.
@@ -58,10 +58,10 @@ class EDAOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, logger_manager))
         self.log: Any = getattr(self, "log", None)
 
-        self.msg: MessagesOrchestrator | None = None
+        self.msg: MessageOrchestrator | None = None
 
-    def attach_messages(self, msg: MessagesOrchestrator) -> None:
-        """Attach a MessagesOrchestrator for localized emissions."""
+    def attach_message(self, msg: MessageOrchestrator) -> None:
+        """Attach a MessageOrchestrator for localized emissions."""
         self.msg = msg
 
     def run(self, x: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:

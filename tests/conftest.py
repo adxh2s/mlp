@@ -21,10 +21,10 @@ def pytest_configure(config):
         },
         "orchestrators": {
             "eda": {"enabled": False},
-            "pipelines": {
+            "pipeline": {
                 "enabled": False,
                 "cv": {"cv_folds": 2, "scoring": ["f1"]},
-                "pipelines": [],
+                "pipeline": [],
             },
             "report": {"enabled": False, "formats": ["md"]},
         },

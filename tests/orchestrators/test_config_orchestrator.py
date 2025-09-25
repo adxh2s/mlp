@@ -24,7 +24,7 @@ def _build_cfg(minimal: bool = True) -> Any:
         "project": {"name": "demo", "random_state": 42, "output_dir": "outputs"},
         "orchestrators": {
             "config": {"enabled": True},
-            "messages": {
+            "message": {
                 "enabled": True,
                 "locale": "fr",
                 "locales_dir": "i18n/locales",
@@ -78,7 +78,7 @@ def test_config_orchestrator_emits_error_on_invalid_cfg(monkeypatch: pytest.Monk
     bad = OmegaConf.create({"orchestrators": {}, "logger": {}})
     cfg_mgr = ConfigManager(bad)
 
-    # Intercept MessagesOrchestrator.emit to capture error emission
+    # Intercept MessageOrchestrator.emit to capture error emission
     events: list[dict[str, str]] = []
 
     def fake_emit(domain: str, event: str, level: str = "info", **fields: Any) -> None:  # noqa: D401
@@ -91,7 +91,7 @@ def test_config_orchestrator_emits_error_on_invalid_cfg(monkeypatch: pytest.Monk
             }
         )
 
-    with patch("src.orchestrators.config.MessagesOrchestrator") as MM:
+    with patch("src.orchestrators.config.MessageOrchestrator") as MM:
         instance = MagicMock()
         instance.emit.side_effect = fake_emit
         MM.return_value = instance

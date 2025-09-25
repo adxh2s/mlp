@@ -32,7 +32,7 @@ class FileManager:
     SUPPORTED_READ = {".csv", ".xlsx", ".xls", ".json"}
     DEFAULT_JSON_ORIENT = "records"
 
-    # Error messages
+    # Error message
     ERR_UNSUPPORTED_EXT = "Unsupported extension: {}"
 
     def check_path_exists(self, path: str | Path) -> bool:

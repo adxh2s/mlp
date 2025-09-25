@@ -6,7 +6,7 @@ from shutil import which
 
 import pytest
 
-from src.instrumentation.messages_manager import MessageManager
+from src.instrumentation.message_manager import MessageManager
 
 """
 Tests for UI MessageManager domain (streamlit_app):
@@ -17,7 +17,7 @@ Tests for UI MessageManager domain (streamlit_app):
 
 
 def _write_streamlit_po(tmp_path: Path) -> Path:
-    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGES"
+    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGE"
     lcd.mkdir(parents=True, exist_ok=True)
     po = lcd / "streamlit_app.po"
     po.write_text(

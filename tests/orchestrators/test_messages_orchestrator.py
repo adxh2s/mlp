@@ -9,18 +9,18 @@ import pytest
 from omegaconf import OmegaConf
 
 from src.instrumentation.config_manager import ConfigManager
-from src.orchestrators.messages import MessagesOrchestrator
+from src.orchestrators.message import MessageOrchestrator
 
 """
-Tests for MessagesOrchestrator:
-- Loads locale config and resolves messages via gettext .mo
+Tests for MessageOrchestrator:
+- Loads locale config and resolves message via gettext .mo
 - Emits structured logs (event + msg + domain + fields)
 """
 
 
 def _write_po(tmp_path: Path, domain: str) -> Path:
     """Write a minimal French PO file for a domain and return path."""
-    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGES"
+    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGE"
     lcd.mkdir(parents=True, exist_ok=True)
     po = lcd / f"{domain}.po"
     po.write_text(
@@ -51,11 +51,11 @@ def _compile_mo(po: Path) -> Path:
 
 
 def _build_cfg(locales_dir: str, domains: list[str]) -> Any:
-    """Build OmegaConf with messages orchestrator section."""
+    """Build OmegaConf with message orchestrator section."""
     base = {
         "project": {"name": "demo", "random_state": 42, "output_dir": "outputs"},
         "orchestrators": {
-            "messages": {
+            "message": {
                 "enabled": True,
                 "locale": "fr",
                 "locales_dir": locales_dir,
@@ -88,7 +88,7 @@ def test_message_orchestrator_translate_and_emit(
     type(cfg_mgr).project_root = property(lambda self: tmp_path)  # type: ignore[assignment]
 
     # Use real stdlib logger manager (JSON mode) to capture stdout/stderr
-    orch = MessagesOrchestrator(cfg_mgr)
+    orch = MessageOrchestrator(cfg_mgr)
 
     # Act: translate() and emit()
     text = orch.translate("general", "unit_test_event", value=123)
@@ -116,7 +116,7 @@ def test_message_orchestrator_missing_domain_graceful(
     cfg_mgr = ConfigManager(cfg)
     type(cfg_mgr).project_root = property(lambda self: tmp_path)  # type: ignore[assignment]
 
-    orch = MessagesOrchestrator(cfg_mgr)
+    orch = MessageOrchestrator(cfg_mgr)
     # Act
     text = orch.translate("unknown", "unit_test_event", value=1)
     orch.emit("unknown", "unit_test_event", value=1)

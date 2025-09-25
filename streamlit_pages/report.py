@@ -23,22 +23,22 @@ def _list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
 
 
 def run() -> None:
-    """Affiche les rapports rendus sous outputs/<project>/reports."""
+    """Affiche les rapports rendus sous outputs/<project>/report."""
     tr = st.session_state.get("tr", lambda k, **p: k)
-    st.title(tr("TITLE_REPORTS"))
+    st.title(tr("TITLE_REPORT"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
     project_name = st.session_state.get("project_name", "demo_project")
     root = _project_root(outputs_dir, project_name)
-    rep_root = root / "reports"
+    rep_root = root / "report"
 
     if not rep_root.exists():
-        st.info(tr("MSG_NO_REPORTS_DIR"))
+        st.info(tr("MSG_NO_REPORT_DIR"))
         return
 
     artifacts = _list_artifacts(rep_root, exts=[".html", ".md"])
     if not artifacts:
-        st.info(tr("MSG_NO_REPORTS"))
+        st.info(tr("MSG_NO_REPORT"))
         return
 
     sel = st.selectbox(tr("LBL_SELECT_REPORT"), artifacts, format_func=lambda p: p.name)

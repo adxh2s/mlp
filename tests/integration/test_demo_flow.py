@@ -12,10 +12,10 @@ def test_integration_end_to_end(tmp_outputs):
             "project": {"name": "it_project", "random_state": 42, "output_dir": str(tmp_outputs)},
             "orchestrators": {
                 "eda": {"enabled": True, "profile": {"minimal": True}},
-                "pipelines": {
+                "pipeline": {
                     "enabled": True,
                     "cv": {"cv_folds": 2, "scoring": ["f1"]},
-                    "pipelines": [
+                    "pipeline": [
                         {
                             "name": "rf_small",
                             "steps": {

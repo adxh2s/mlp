@@ -9,7 +9,7 @@ from src.config.schemas import AppConfig
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_mixin import LoggerMixin
-from src.instrumentation.messages_taxonomy import (
+from src.instrumentation.message_taxonomy import (
     DATA_ORCHESTRATOR_DISABLED_NOT_DF,
     DATA_ORCHESTRATOR_FAILED,
     EDA_ORCHESTRATOR_FAILED,
@@ -20,20 +20,20 @@ from src.instrumentation.messages_taxonomy import (
     GENERAL_START_FROM_DATA,
     GENERAL_START_FROM_FILES,
     NO_INPUT_FILES_FOUND,
-    PIPELINES_ORCHESTRATOR_FAILED,
+    PIPELINE_ORCHESTRATOR_FAILED,
     REPORT_ORCHESTRATOR_FAILED,
     USING_EXAMPLE_DATA,
 )
 from src.orchestrators.data import DataOrchestrator
 from src.orchestrators.eda import EDAOrchestrator
 from src.orchestrators.file import FileOrchestrator
-from src.orchestrators.messages import MessagesOrchestrator
-from src.orchestrators.pipelines import PipelineOrchestrator
+from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.pipeline import PipelineOrchestrator
 from src.orchestrators.report import ReportOrchestrator
 
 """
-General orchestrator: coordinate file→data→EDA→pipelines→report with localized, structured logging.
-- Builds or reuses shared LoggerManager/MessagesOrchestrator and propagates context (ctx).
+General orchestrator: coordinate file→data→EDA→pipeline→report with localized, structured logging.
+- Builds or reuses shared LoggerManager/MessageOrchestrator and propagates context (ctx).
 - Supports starting from files or directly from provided DataFrame/Series.
 """
 
@@ -42,7 +42,7 @@ DOMAIN = "general"
 KEY_FILE = "file"
 KEY_DATA = "data"
 KEY_EDA = "eda"
-KEY_PIPELINES = "pipelines"
+KEY_PIPELINE = "pipeline"
 KEY_REPORT = "report"
 
 
@@ -59,13 +59,13 @@ def _example_data() -> tuple[pd.DataFrame, pd.Series]:
 
 
 class GeneralOrchestrator(LoggerMixin):
-    """Coordinate the full workflow with consistent logging and messages."""
+    """Coordinate the full workflow with consistent logging and message."""
 
     def __init__(
         self,
         config_manager: ConfigManager,
         logger_manager: Any | None = None,
-        message_orchestrator: MessagesOrchestrator | None = None,
+        message_orchestrator: MessageOrchestrator | None = None,
         ctx: dict[str, str] | None = None,
     ) -> None:
         self.config_manager = config_manager
@@ -76,8 +76,8 @@ class GeneralOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, self.lm))
         self.LOGGER_NAME = LOGGER_NAME
 
-        # Messages
-        self.msg_orch = message_orchestrator or MessagesOrchestrator(self.config_manager, logger_manager=self.lm)
+        # Message
+        self.msg_orch = message_orchestrator or MessageOrchestrator(self.config_manager, logger_manager=self.lm)
 
         # Context (fallback if not provided)
         if ctx is None:
@@ -105,10 +105,10 @@ class GeneralOrchestrator(LoggerMixin):
         """
         return _example_data()
 
-    def _attach_messages(self, *children: Any) -> None:
+    def _attach_message(self, *children: Any) -> None:
         for ch in children:
-            if hasattr(ch, "attach_messages"):
-                ch.attach_messages(self.msg_orch)
+            if hasattr(ch, "attach_message"):
+                ch.attach_message(self.msg_orch)
 
     def run_from_files(self) -> dict[str, Any]:
         results: dict[str, Any] = {}
@@ -119,7 +119,7 @@ class GeneralOrchestrator(LoggerMixin):
         if orchestrators.file and orchestrators.file.enabled:
             try:
                 file_orch = FileOrchestrator(orchestrators.file, logger_manager=cast(Any, self.lm), ctx=self.ctx)
-                self._attach_messages(file_orch)
+                self._attach_message(file_orch)
                 file_result = file_orch.process_input()
                 results[KEY_FILE] = file_result
                 if not file_result.get("found", False):
@@ -137,7 +137,7 @@ class GeneralOrchestrator(LoggerMixin):
         if orchestrators.data.enabled:
             try:
                 data_orch = DataOrchestrator(orchestrators.data, logger_manager=cast(Any, self.lm))
-                self._attach_messages(data_orch)
+                self._attach_message(data_orch)
                 data_result = data_orch.run(raw_data)
                 results[KEY_DATA] = data_result
                 x, y = data_result["X"], data_result["y"]
@@ -179,15 +179,15 @@ class GeneralOrchestrator(LoggerMixin):
         if orchestrators.eda.enabled:
             try:
                 eda = EDAOrchestrator(orchestrators.eda, self.project_dir, logger_manager=cast(Any, self.lm))
-                self._attach_messages(eda)
+                self._attach_message(eda)
                 results[KEY_EDA] = eda.run(x, y)
             except Exception as exc:  # noqa: BLE001
                 self.msg_orch.emit(DOMAIN, EDA_ORCHESTRATOR_FAILED, level="error", error=str(exc))
 
-        # Pipelines
-        if orchestrators.pipelines.enabled and y is not None:
+        # Pipeline
+        if orchestrators.pipeline.enabled and y is not None:
             try:
-                p_out_cfg = getattr(orchestrators.pipelines, "out_dir", None)
+                p_out_cfg = getattr(orchestrators.pipeline, "out_dir", None)
                 if p_out_cfg:
                     p = Path(p_out_cfg)
                     if p.is_absolute():
@@ -198,27 +198,27 @@ class GeneralOrchestrator(LoggerMixin):
                     else:
                         out_dir = str(Path(self.project_dir) / p_out_cfg)
                 else:
-                    out_dir = str(Path(self.project_dir) / "pipelines_cv")
+                    out_dir = str(Path(self.project_dir) / "pipeline_cv")
 
                 pipes = PipelineOrchestrator(
-                    orchestrators.pipelines,
+                    orchestrators.pipeline,
                     project_dir=self.project_dir,
                     random_state=self.cfg.project.random_state,
                     logger_manager=cast(Any, self.lm),
                     out_dir=out_dir,
                     ctx=self.ctx,
                 )
-                self._attach_messages(pipes)
-                results[KEY_PIPELINES] = pipes.run(x, y)
+                self._attach_message(pipes)
+                results[KEY_PIPELINE] = pipes.run(x, y)
             except Exception as exc:  # noqa: BLE001
-                self.msg_orch.emit(DOMAIN, PIPELINES_ORCHESTRATOR_FAILED, level="error", error=str(exc))
+                self.msg_orch.emit(DOMAIN, PIPELINE_ORCHESTRATOR_FAILED, level="error", error=str(exc))
 
         # Report
         if orchestrators.report.enabled:
             try:
                 rep = ReportOrchestrator(orchestrators.report, self.project_dir, self.cfg, logger_manager=cast(Any, self.lm), ctx=self.ctx)
-                self._attach_messages(rep)
-                results[KEY_REPORT] = rep.run(results.get(KEY_EDA, {}), results.get(KEY_PIPELINES, {"results": []}))
+                self._attach_message(rep)
+                results[KEY_REPORT] = rep.run(results.get(KEY_EDA, {}), results.get(KEY_PIPELINE, {"results": []}))
             except Exception as exc:  # noqa: BLE001
                 self.msg_orch.emit(DOMAIN, REPORT_ORCHESTRATOR_FAILED, level="error", error=str(exc))
 

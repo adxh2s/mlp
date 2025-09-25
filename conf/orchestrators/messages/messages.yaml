@@ -1,5 +1,5 @@
-# conf/orchestrators/messages.yaml
-package: orchestrators.messages
+# conf/orchestrators/message.yaml
+package: orchestrators.message
 
 enabled: true
 locale: fr
@@ -10,6 +10,6 @@ domains:
   - file
   - data
   - eda
-  - pipelines
+  - pipeline
   - report
   - streamlit_app

@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_manager import LoggerManager
-from src.orchestrators.messages import MessagesOrchestrator
+from src.orchestrators.message import MessageOrchestrator
 
 """
 Logger orchestrator: build and configure LoggerManager, and emit 'logger_ready'.
@@ -30,7 +30,7 @@ class LoggerOrchestrator:
         self.lm = build_logger_manager(settings)
         self.lm.configure()
 
-        msg = MessagesOrchestrator(config_manager, logger_manager=self.lm)
+        msg = MessageOrchestrator(config_manager, logger_manager=self.lm)
         msg.emit(
             LOGGER_DOMAIN,
             "logger_ready",

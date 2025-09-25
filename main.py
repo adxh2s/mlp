@@ -5,7 +5,7 @@ import sys
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from src.instrumentation.messages_taxonomy import APP_DONE, APP_START
+from src.instrumentation.message_taxonomy import APP_DONE, APP_START
 from src.orchestrators.app import AppOrchestrator
 from src.orchestrators.general import GeneralOrchestrator
 
@@ -28,7 +28,7 @@ def main(cfg: DictConfig) -> None:
     resolved = OmegaConf.to_container(cfg, resolve=True)
     orch = resolved.get("orchestrators") or {}
     data_cfg = orch.get("data") or {}
-    pipes_cfg = orch.get("pipelines") or {}
+    pipes_cfg = orch.get("pipeline") or {}
 
     msg.emit(
         "app",
@@ -36,11 +36,11 @@ def main(cfg: DictConfig) -> None:
         file_enabled=(orch.get("file") or {}).get("enabled"),
         data_enabled=(orch.get("data") or {}).get("enabled"),
         eda_enabled=(orch.get("eda") or {}).get("enabled"),
-        pipelines_enabled=(orch.get("pipelines") or {}).get("enabled"),
+        pipeline_enabled=(orch.get("pipeline") or {}).get("enabled"),
         report_enabled=(orch.get("report") or {}).get("enabled"),
         data_target_column=data_cfg.get("target_column"),
         data_auto_detect_target=data_cfg.get("auto_detect_target"),
-        pipelines_out_dir=pipes_cfg.get("out_dir"),
+        pipeline_out_dir=pipes_cfg.get("out_dir"),
         ctx=app.ctx,
     )
 

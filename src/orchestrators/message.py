@@ -1,4 +1,4 @@
-# src/orchestrators/messages.py
+# src/orchestrators/message.py
 from __future__ import annotations
 
 import gettext
@@ -6,15 +6,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 """
-MessagesOrchestrator: service i18n basé sur gettext pour l'UI Streamlit.
+MessageOrchestrator: service i18n basé sur gettext pour l'UI Streamlit.
 
-- Charge les catalogues .mo sous i18n/locales/<lang>/LC_MESSAGES/streamlit_app.mo
+- Charge les catalogues .mo sous i18n/locales/<lang>/LC_MESSAGE/streamlit_app.mo
 - Expose tr(msgid: str, **params) -> str
 - Fallback sur 'en' si la clé ou la langue sont absentes
 """
 
 
-class MessagesOrchestrator:
+class MessageOrchestrator:
     """Orchestrateur i18n encapsulant gettext pour l'UI."""
 
     def __init__(

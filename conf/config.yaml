@@ -1,9 +1,9 @@
 defaults:
   - orchestrators/config@orchestrators.config: config
-  - orchestrators/messages@orchestrators.messages: messages
+  - orchestrators/message@orchestrators.message: message
   - orchestrators/file@orchestrators.file: file
   - orchestrators/data@orchestrators.data: data
-  - orchestrators/pipelines@orchestrators.pipelines: pipelines
+  - orchestrators/pipeline@orchestrators.pipeline: pipeline
   - orchestrators/report@orchestrators.report: report
   - _self_
   

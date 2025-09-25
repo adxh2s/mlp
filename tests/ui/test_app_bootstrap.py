@@ -21,7 +21,7 @@ def _write_cfg(tmp_path: Path) -> Path:
             "project": {"name": "demo", "random_state": 42, "output_dir": "outputs"},
             "orchestrators": {
                 "config": {"enabled": True},
-                "messages": {
+                "message": {
                     "enabled": True,
                     "locale": "fr",
                     "locales_dir": "i18n/locales",
@@ -36,7 +36,7 @@ def _write_cfg(tmp_path: Path) -> Path:
 
 
 def _write_streamlit_po(tmp_path: Path) -> None:
-    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGES"
+    lcd = tmp_path / "i18n" / "locales" / "fr" / "LC_MESSAGE"
     lcd.mkdir(parents=True, exist_ok=True)
     (lcd / "streamlit_app.po").write_text(
         'msgid ""\n'

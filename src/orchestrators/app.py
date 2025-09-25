@@ -9,7 +9,7 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
-from src.orchestrators.messages import MessagesOrchestrator
+from src.orchestrators.message import MessageOrchestrator
 
 """
 App orchestrator: bootstrap logging and configuration, and build a Hydra-safe ctx.
@@ -27,12 +27,12 @@ class AppOrchestrator:
         self.logger_orchestrator = LoggerOrchestrator(hydra_cfg)
         self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
 
-        # 3) Config orchestrator: validate and expose AppConfig + messages
+        # 3) Config orchestrator: validate and expose AppConfig + message
         self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
         app_cfg = self.config_orchestrator.get_app_config()
 
-        # 4) Messages (shared) for downstream orchestrators
-        self.message_orchestrator = MessagesOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        # 4) Message (shared) for downstream orchestrators
+        self.message_orchestrator = MessageOrchestrator(self.config_manager, logger_manager=self.logger_manager)
 
         # 5) Build ctx (Hydra-safe absolute paths)
         root = Path(get_original_cwd())
@@ -55,9 +55,9 @@ class AppOrchestrator:
         data_in = (data_root / in_dir).resolve()
         data_out = (data_root / out_dir).resolve()
         eda_dir = (project_dir / "eda").resolve()
-        reports_dir = (project_dir / "reports").resolve()
+        report_dir = (project_dir / "report").resolve()
 
-        for d in (outputs_root, project_dir, data_in, data_out, eda_dir, reports_dir):
+        for d in (outputs_root, project_dir, data_in, data_out, eda_dir, report_dir):
             d.mkdir(parents=True, exist_ok=True)
 
         self.ctx: dict[str, str] = {
@@ -68,5 +68,5 @@ class AppOrchestrator:
             "data_in": str(data_in),
             "data_out": str(data_out),
             "eda_dir": str(eda_dir),
-            "reports_dir": str(reports_dir),
+            "report_dir": str(report_dir),
         }

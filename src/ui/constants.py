@@ -22,10 +22,10 @@ KEY_ROOT_PREFIX = "root_prefix"
 # Page titles (keys)
 KEY_PAGE_HOME = "page_home"
 KEY_PAGE_EDA = "page_eda"
-KEY_PAGE_PIPES = "page_pipelines"
-KEY_PAGE_REPORTS = "page_reports"
+KEY_PAGE_PIPES = "page_pipeline"
+KEY_PAGE_REPORT = "page_report"
 
-# UI messages (keys)
+# UI message (keys)
 KEY_ERR_LOAD_PAGES = "error_load_pages"
 KEY_CFG_MISSING = "config_missing"
 KEY_CFG_READ_ERROR = "config_read_error"
@@ -43,8 +43,8 @@ DEFAULT_TEXTS: dict[str, str] = {
     KEY_ROOT_PREFIX: "Racine artefacts : ",
     KEY_PAGE_HOME: "Accueil",
     KEY_PAGE_EDA: "EDA + YData",
-    KEY_PAGE_PIPES: "Pipelines",
-    KEY_PAGE_REPORTS: "Rapports",
+    KEY_PAGE_PIPES: "Pipeline",
+    KEY_PAGE_REPORT: "Rapports",
     KEY_ERR_LOAD_PAGES: "Erreur lors du chargement des pages : {error}",
     KEY_CFG_MISSING: "Configuration absente : {path}",
     KEY_CFG_READ_ERROR: "Erreur de lecture configuration : {error}",

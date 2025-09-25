@@ -1,7 +1,7 @@
-# conf/orchestrators/pipelines.yaml
-package: orchestrators.pipelines
+# conf/orchestrators/pipeline.yaml
+package: orchestrators.pipeline
 enabled: true
-out_dir: "outputs/mlp/pipelines_cv"
+out_dir: "outputs/mlp/pipeline_cv"
 active: ["dl_dense_auto"]
 
 cv:
@@ -31,7 +31,7 @@ policy:
     handle_unknown: ignore
     min_frequency: 0.01
 
-pipelines:
+pipeline:
 
 - name: lin_svc
   enabled: true

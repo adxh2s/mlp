@@ -29,13 +29,13 @@ class PipelineSpec(BaseModel):
     automl: dict[str, Any] | None = None
 
 
-class PipelinesConfig(BaseModel):
+class PipelineConfig(BaseModel):
     enabled: bool = True
     out_dir: str | None = None  # Nouveau champ
     active: list[str] = Field(default_factory=list)
     cv: dict[str, Any] = Field(default_factory=dict)
     policy: dict[str, Any] = Field(default_factory=dict)
-    pipelines: list[PipelineSpec] = Field(default_factory=list)
+    pipeline: list[PipelineSpec] = Field(default_factory=list)
 
 
 class EDAConfig(BaseModel):
@@ -79,7 +79,7 @@ class OrchestratorsConfig(BaseModel):
     file: FileConfig = Field(default_factory=FileConfig)
     data: DataConfig = Field(default_factory=DataConfig)
     eda: EDAConfig = Field(default_factory=EDAConfig)
-    pipelines: PipelinesConfig = Field(default_factory=PipelinesConfig)
+    pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
 
 

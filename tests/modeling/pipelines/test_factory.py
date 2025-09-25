@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.modeling.pipelines.factory import PipelineFactory
+from src.modeling.pipeline.factory import PipelineFactory
 
 
 def make_fake_df(n=64, p_num=3, p_cat=2):

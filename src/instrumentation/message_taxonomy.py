@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Final
 
 """
-Taxonomie des clés de messages (gettext msgid) utilisées dans l’application.
+Taxonomie des clés de message (gettext msgid) utilisées dans l’application.
 """
 
 APP_START: Final[str] = "app_start"
@@ -42,14 +42,14 @@ NO_INPUT_FILES_FOUND: Final[str] = "no_input_files_found"
 INPUT_FOUND: Final[str] = "input_found"
 INPUT_PROCESSED: Final[str] = "input_processed"
 
-MESSAGES_READY: Final[str] = "messages_ready"
+MESSAGE_READY: Final[str] = "message_ready"
 
-PIPELINES_START: Final[str] = "pipelines_start"
-PIPELINES_EVAL_START: Final[str] = "pipelines_eval_start"
-PIPELINES_EVAL_DONE: Final[str] = "pipelines_eval_done"
-PIPELINES_DONE: Final[str] = "pipelines_done"
-PIPELINES_DISABLED: Final[str] = "pipelines_disabled"
-PIPELINES_ORCHESTRATOR_FAILED: Final[str] = "pipelines_ORCHESTRATOR_failed"
+PIPELINE_START: Final[str] = "pipeline_start"
+PIPELINE_EVAL_START: Final[str] = "pipeline_eval_start"
+PIPELINE_EVAL_DONE: Final[str] = "pipeline_eval_done"
+PIPELINE_DONE: Final[str] = "pipeline_done"
+PIPELINE_DISABLED: Final[str] = "pipeline_disabled"
+PIPELINE_ORCHESTRATOR_FAILED: Final[str] = "pipeline_ORCHESTRATOR_failed"
 
 REPORT_START: Final[str] = "report_start"
 REPORT_DONE: Final[str] = "report_done"
