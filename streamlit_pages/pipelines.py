@@ -1,5 +1,6 @@
-# streamlit_pages/pipelines.py
 from __future__ import annotations
+
+"""Page Pipelines: builder d'options, exécution orchestrée, et affichage résultats CV."""
 
 from pathlib import Path
 from typing import Any
@@ -11,24 +12,27 @@ from omegaconf import OmegaConf
 from src.instrumentation.config_manager import ConfigManager
 from src.orchestrators.general import GeneralOrchestrator
 
-"""Page Pipelines: builder d'options, exécution orchestrée, affichage des résultats CV."""
 
 def _project_root(outputs_dir: str, project_name: str) -> Path:
+    """Retourne la racine du projet courant dans outputs/."""
     return Path(outputs_dir) / project_name
 
 
 @st.cache_data
 def _list_cv_results(pipes_path: Path) -> list[Path]:
+    """Liste les résultats de CV sous outputs/<project>/pipelines."""
     return sorted(pipes_path.glob("cv_*.csv"))
 
 
 @st.cache_data
 def _load_csv(path: Path) -> pd.DataFrame:
+    """Charge un CSV en DataFrame."""
     return pd.read_csv(path)
 
 
 @st.cache_data
 def _load_pipeline_options() -> dict:
+    """Charge les options UI depuis le YAML si présent, sinon valeurs par défaut."""
     cfg_path = Path("conf/orchestrators/pipelines/pipelines.yaml")
     if cfg_path.exists():
         cfg = OmegaConf.load(str(cfg_path))
@@ -47,6 +51,7 @@ def _load_pipeline_options() -> dict:
 
 
 def _run_pipelines(outputs_dir: str, project_name: str, request: dict[str, Any]) -> None:
+    """Lance les pipelines via l'orchestrateur en injectant la requête UI dans la config."""
     cfg = OmegaConf.load("conf/config.yaml")
     cfg.project.output_dir = outputs_dir
     cfg.project.name = project_name
@@ -63,8 +68,8 @@ def _run_pipelines(outputs_dir: str, project_name: str, request: dict[str, Any])
 
 
 def run() -> None:
+    """Affiche le builder de pipelines et les résultats CV disponibles."""
     tr = st.session_state.get("tr", lambda k, **p: k)
-    st.set_page_config(page_title=tr("TITLE_PIPELINES"), layout="wide")
     st.title(tr("TITLE_PIPELINES"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
@@ -74,21 +79,18 @@ def run() -> None:
     pipes_root.mkdir(parents=True, exist_ok=True)
 
     opts = _load_pipeline_options()
+    pre = opts.get("preprocessing", {}) if isinstance(opts, dict) else {}
 
     with st.expander(tr("SECTION_BUILDER"), expanded=True):
         with st.form("pipeline_builder"):
-            tab_pre, tab_model, tab_cv = st.tabs([tr("TAB_PRE"), tr("TAB_MODEL"), tr("TAB_CV")])
-            with tab_pre:
-                enc = st.selectbox(tr("LBL_ENCODER"), opts["preprocessing"]["encoder"])
-                imp = st.selectbox(tr("LBL_IMPUTER"), opts["preprocessing"]["imputer"])
-                sel = st.selectbox(tr("LBL_SELECTOR"), opts["preprocessing"]["selector"])
-                red = st.selectbox(tr("LBL_REDUCER"), opts["preprocessing"]["reducer"])
-            with tab_model:
-                est = st.selectbox(tr("LBL_ESTIMATOR"), opts["estimators"])
-                hp = st.text_area(tr("LBL_HPARAMS"), value="{}")
-            with tab_cv:
-                cv = st.selectbox(tr("LBL_CV"), opts["cv"])
-                scoring = st.selectbox(tr("LBL_SCORING"), opts["scoring"])
+            enc = st.selectbox(tr("LBL_ENCODER"), pre.get("encoder", ["onehot", "target", "none"]))
+            imp = st.selectbox(tr("LBL_IMPUTER"), pre.get("imputer", ["simple", "iterative", "none"]))
+            sel = st.selectbox(tr("LBL_SELECTOR"), pre.get("selector", ["kbest", "percentile", "none"]))
+            red = st.selectbox(tr("LBL_REDUCER"), pre.get("reducer", ["none", "pca", "umap"]))
+            est = st.selectbox(tr("LBL_ESTIMATOR"), opts.get("estimators", ["logreg", "rf", "xgb", "dl"]))
+            hp = st.text_area(tr("LBL_HPARAMS"), value="{}")
+            cv = st.selectbox(tr("LBL_CV"), opts.get("cv", [3, 5, 10]))
+            scoring = st.selectbox(tr("LBL_SCORING"), opts.get("scoring", ["accuracy", "f1", "roc_auc"]))
             submitted = st.form_submit_button(tr("BTN_RUN_PIPELINES"))
         if submitted:
             try:
@@ -112,6 +114,6 @@ def run() -> None:
         st.info(tr("MSG_NO_CV"))
         return
 
-    sel = st.selectbox(tr("LBL_RESULTS_FILE"), artifacts, format_func=lambda p: p.name)
-    df = _load_csv(sel)
+    sel_path = st.selectbox(tr("LBL_RESULTS_FILE"), artifacts, format_func=lambda p: p.name)
+    df = _load_csv(sel_path)
     st.dataframe(df, use_container_width=True)

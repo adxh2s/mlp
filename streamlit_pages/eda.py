@@ -1,7 +1,6 @@
-# streamlit_pages/eda.py
 from __future__ import annotations
 
-"""Page EDA: profil YData, résumé JSON et intégrations externes."""
+"""Page EDA: profil YData, résumé JSON, intégrations externes, et détection dataset."""
 
 import json
 from pathlib import Path
@@ -16,11 +15,13 @@ from src.orchestrators.general import GeneralOrchestrator
 
 
 def _project_root(outputs_dir: str, project_name: str) -> Path:
+    """Retourne la racine du projet courant dans outputs/."""
     return Path(outputs_dir) / project_name
 
 
 @st.cache_data
 def _latest_eda_paths(root: Path) -> Tuple[Path | None, Path | None]:
+    """Retourne les derniers chemins (summary JSON, profil HTML) sous outputs/<project>/eda."""
     eda_path = root / "eda"
     summary = sorted(eda_path.glob("eda_summary_*.json"))
     profile_html = sorted(eda_path.glob("profile_*.html"))
@@ -29,10 +30,12 @@ def _latest_eda_paths(root: Path) -> Tuple[Path | None, Path | None]:
 
 @st.cache_data
 def _load_json(path: Path) -> dict:
+    """Charge un JSON depuis path."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _run_eda(outputs_dir: str, project_name: str) -> None:
+    """Déclenche l'EDA via l'orchestrateur."""
     cfg = OmegaConf.load("conf/config.yaml")
     cfg.project.output_dir = outputs_dir
     cfg.project.name = project_name
@@ -46,13 +49,26 @@ def _run_eda(outputs_dir: str, project_name: str) -> None:
 
 
 def run() -> None:
+    """Affiche la page EDA avec détection de dataset, actions, et artefacts récents."""
     tr = st.session_state.get("tr", lambda k, **p: k)
-    st.set_page_config(page_title=tr("TITLE_EDA"), layout="wide")
     st.title(tr("TITLE_EDA"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
     project_name = st.session_state.get("project_name", "demo_project")
     root = _project_root(outputs_dir, project_name)
+
+    # Détection dataset en data/in + uploader en alternative
+    data_in = Path("data/in")
+    candidates = sorted([*data_in.glob("*.csv"), *data_in.glob("*.xlsx"), *data_in.glob("*.json")])
+    st.subheader("Dataset")
+    if candidates:
+        st.selectbox("Fichier détecté", candidates, format_func=lambda p: p.name, key="eda_dataset")
+    else:
+        up = st.file_uploader("Charger un dataset", type=["csv", "xlsx", "json"])
+        if up:
+            data_in.mkdir(parents=True, exist_ok=True)
+            (data_in / up.name).write_bytes(up.getbuffer())
+            st.success(f"Importé: {up.name} → data/in")
 
     c1, c2 = st.columns([1, 1], gap="large")
     with c1:
@@ -61,6 +77,7 @@ def run() -> None:
             _run_eda(outputs_dir, project_name)
             st.cache_data.clear()
             st.success(tr("BTN_RUN_EDA"))
+
         st.subheader(tr("SECTION_EXTERNAL"))
         external_html = st.file_uploader(tr("UPLOAD_HTML"), type=["html"])
         if external_html:

@@ -3,20 +3,22 @@ services:
     build: .
     container_name: mlp_app
     environment:
-      - MLP_OUTPUTS_DIR=${MLP_OUTPUTS_DIR:-/app/outputs}
-      - MLP_PROJECT_NAME=${MLP_PROJECT_NAME:-demo_project}
-      - MLP_NOTEBOOKS_DIR=${MLP_NOTEBOOKS_DIR:-/app/notebooks}
-      - MLP_NOTEBOOKS_URL=${MLP_NOTEBOOKS_URL:-}
-      - MLP_LANG=${MLP_LANG:-fr}
+      - MLP_OUTPUTS_DIR=/app/outputs
+      - MLP_PROJECT_NAME=nba_project
+      - MLP_NOTEBOOKS_DIR=/app/notebooks
+      - MLP_NOTEBOOKS_URL=http://localhost:8866
+      - MLP_LANG=fr
     volumes:
       - ./:/app
       - outputs:/app/outputs
       - notebooks:/app/notebooks
+      - ./data:/app/data
     ports:
       - "8501:8501"
     command: >
       uv run streamlit run streamlit_app.py
       --server.address=0.0.0.0 --server.port=8501
+    restart: unless-stopped
 
   notebooks:
     build: .
@@ -25,12 +27,30 @@ services:
     volumes:
       - ./:/app
       - notebooks:/app/notebooks
+      - ./data:/app/data
     ports:
       - "8888:8888"
     command: >
       uv run jupyter lab
       --ip=0.0.0.0 --port=8888 --no-browser --allow-root
       --NotebookApp.token=''
+    restart: unless-stopped
+
+  voila:
+    build: .
+    container_name: mlp_voila
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - notebooks:/app/notebooks
+      - ./data:/app/data
+    ports:
+      - "8866:8866"
+    command: >
+      uv run voila
+      --Voila.ip=0.0.0.0 --port=8866 --no-browser
+      --Voila.root_dir=/app
+    restart: unless-stopped
 
 volumes:
   outputs:

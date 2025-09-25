@@ -1,4 +1,3 @@
-# streamlit_pages/reports.py
 from __future__ import annotations
 
 """Page Rapports: listing et rendu des rapports HTML/MD générés."""
@@ -10,11 +9,13 @@ import streamlit.components.v1 as components
 
 
 def _project_root(outputs_dir: str, project_name: str) -> Path:
+    """Retourne la racine du projet courant dans outputs/."""
     return Path(outputs_dir) / project_name
 
 
 @st.cache_data
 def _list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
+    """Liste les artefacts d'extensions données dans rep_path."""
     found: list[Path] = []
     for ext in exts:
         found.extend(rep_path.glob(f"*{ext}"))
@@ -22,8 +23,8 @@ def _list_artifacts(rep_path: Path, exts: list[str]) -> list[Path]:
 
 
 def run() -> None:
+    """Affiche les rapports rendus sous outputs/<project>/reports."""
     tr = st.session_state.get("tr", lambda k, **p: k)
-    st.set_page_config(page_title=tr("TITLE_REPORTS"), layout="wide")
     st.title(tr("TITLE_REPORTS"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")

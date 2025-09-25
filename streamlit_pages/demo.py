@@ -1,4 +1,3 @@
-# streamlit_pages/demo.py
 from __future__ import annotations
 
 """Page de démonstration: simulation de tir en match avec demi-terrain."""
@@ -11,10 +10,12 @@ import streamlit as st
 
 
 def _models_dir(outputs_dir: str, project_name: str) -> Path:
+    """Retourne le répertoire des modèles du projet courant."""
     return Path(outputs_dir) / project_name / "models"
 
 
 def _half_court() -> go.Figure:
+    """Construit un demi-terrain simplifié avec quelques repères."""
     fig = go.Figure()
     fig.update_layout(width=800, height=500, xaxis=dict(range=[0, 15]), yaxis=dict(range=[0, 14]), showlegend=True)
     fig.add_shape(type="rect", x0=0, y0=0, x1=15, y1=14, line=dict(color="black"))
@@ -23,8 +24,8 @@ def _half_court() -> go.Figure:
 
 
 def run() -> None:
+    """Affiche la page de simulation et les contrôles de paramétrage."""
     tr = st.session_state.get("tr", lambda k, **p: k)
-    st.set_page_config(page_title=tr("TITLE_DEMO"), layout="wide")
     st.title(tr("TITLE_DEMO"))
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")

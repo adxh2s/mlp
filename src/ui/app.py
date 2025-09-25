@@ -206,7 +206,6 @@ class MLPStreamlitApp:
 
     def run(self) -> None:
         """Entrypoint to render and run the app."""
-        st.set_page_config(page_title=self._ui(KEY_APP_TITLE), page_icon="📊", layout="wide")
         st.title(self._ui(KEY_APP_TITLE))
         self.bootstrap()
         self.sidebar()
