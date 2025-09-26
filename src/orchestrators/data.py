@@ -1,9 +1,4 @@
-# src/orchestrators/data.py
 from __future__ import annotations
-
-"""
-Data orchestrator: analyze and prepare data for downstream modeling.
-"""
 
 from pathlib import Path
 from typing import Any
@@ -20,7 +15,7 @@ from src.instrumentation.message_taxonomy import (
     DATA_PROCESSING_FAILED,
     DATA_PROCESSING_START,
 )
-from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
 LOGGER_NAME = "mlp.orchestrators.data"
 DOMAIN = "data"
@@ -43,29 +38,22 @@ class DataOrchestrator(LoggerMixin):
             self._init_logger(self.lm)
         else:
             import logging
-
             self.log = logging.getLogger(LOGGER_NAME)
 
-        # Passer la config Pydantic en dict au DataManager
-        cfg_dict = (
-            self.cfg.model_dump() if hasattr(self.cfg, "model_dump") else dict(self.cfg or {})
-        )
+        cfg_dict = self.cfg.model_dump() if hasattr(self.cfg, "model_dump") else dict(self.cfg or {})
         self.data_manager = DataManager(cfg_dict)
-
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessageOrchestratorApp | None = None
         if self.msg:
             self.msg.emit(DOMAIN, DATA_INIT)
         else:
-            self.log.info("data_orchestrator_init")
+            getattr(self, "log", None) and self.log.info("data_orchestrator_init")
 
-    def attach_message(self, msg: MessageOrchestrator) -> None:
+    def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def analyze_df(self, df: pd.DataFrame) -> dict[str, Any]:
-        """Rapport synthétique pour le logging amont, incluant la cible résolue."""
         types = self.data_manager.infer_column_types(df)
         cfg_target = getattr(self.cfg, "target_column", None)
-        # Priorité absolue à la config si présente et existante
         if cfg_target and cfg_target in df.columns:
             target_col = cfg_target
         else:
@@ -85,34 +73,22 @@ class DataOrchestrator(LoggerMixin):
         if isinstance(raw_data, (str, Path)):
             return DataManager.load_csv(Path(raw_data).resolve(), encoding=encoding, sep=sep)
         if isinstance(raw_data, dict) and "path" in raw_data:
-            return DataManager.load_csv(
-                Path(raw_data["path"]).resolve(), encoding=encoding, sep=sep
-            )
+            return DataManager.load_csv(Path(raw_data["path"]).resolve(), encoding=encoding, sep=sep)
         raise ValueError("raw_data must be a DataFrame, a path, or a dict containing 'path'")
 
     def process_data(self, raw_data: Any) -> tuple[pd.DataFrame, pd.Series | None]:
-        """Charge → analyse → prépare (clean/split/validate) → retourne X,y."""
         if self.msg:
             self.msg.emit(DOMAIN, DATA_PROCESSING_START)
         else:
             self.log.info("data_processing_start")
-
         try:
-            # 1) Charger avec encodage/séparateur de la config
-            df = self._load_df_from_payload(
-                raw_data, getattr(self.cfg, "encoding", None), getattr(self.cfg, "sep", None)
-            )
-
-            # 2) Analyse
+            df = self._load_df_from_payload(raw_data, getattr(self.cfg, "encoding", None), getattr(self.cfg, "sep", None))
             analysis = self.analyze_df(df)
             if self.msg:
                 self.msg.emit(DOMAIN, DATA_ANALYSIS_COMPLETE, **analysis)
             else:
                 self.log.info("data_analysis_complete", extra={"extra_fields": analysis})
-
-            # 3) Préparer (clean + split X/y + validate)
             X, y = self.data_manager.prepare_for_ml(df)
-
             meta = {
                 "features_shape": X.shape,
                 "target_shape": y.shape if y is not None else None,
@@ -123,15 +99,12 @@ class DataOrchestrator(LoggerMixin):
                 self.msg.emit(DOMAIN, DATA_PROCESSING_COMPLETE, **meta)
             else:
                 self.log.info("data_processing_complete", extra={"extra_fields": meta})
-
             return X, y
         except Exception as exc:  # noqa: BLE001
             if self.msg:
                 self.msg.emit(DOMAIN, DATA_PROCESSING_FAILED, level="error", error=str(exc))
             else:
-                self.log.error(
-                    "data_processing_failed", extra={"extra_fields": {"error": str(exc)}}
-                )
+                self.log.error("data_processing_failed", extra={"extra_fields": {"error": str(exc)}})
             raise
 
     def run(self, raw_data: Any) -> dict[str, Any]:

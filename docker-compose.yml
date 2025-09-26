@@ -5,22 +5,33 @@ services:
     environment:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - MLP_OUTPUTS_DIR=/app/outputs
-      - MLP_PROJECT_NAME=nba_project
+      - MLP_PROJECT_NAME=demo_project
       - MLP_NOTEBOOKS_DIR=/app/notebooks
       - MLP_NOTEBOOKS_URL=http://localhost:8866
       - MLP_LANG=fr
+      - MLP_DOCS_DIR=/app/docs
+      - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true
     volumes:
       - ./:/app
       - outputs:/app/outputs
       - notebooks:/app/notebooks
       - ./data:/app/data
+      - ./docs:/app/docs:ro
     ports:
       - "8501:8501"
     command: >
-      uv run streamlit run streamlit_app.py
-      --server.address=0.0.0.0 --server.port=8501
+      sh -c '
+        mkdir -p /app/static &&
+        ln -sfn /app/docs /app/static/docs &&
+        if [ -d "i18n/locales" ]; then
+          find i18n/locales -name "*.po" -type f -print0 |
+          xargs -0 -I "{}" sh -c '"'"'msgfmt "$$1" -o "$${1%.po}.mo"'"'"' sh "{}";
+        fi &&
+        uv run streamlit run streamlit_app.py
+        --server.address=0.0.0.0 --server.port=8501
+      '
     restart: unless-stopped
-
+    
   notebooks:
     build: .
     container_name: mlp_notebooks
@@ -29,8 +40,10 @@ services:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ./:/app
+      - outputs:/app/outputs
       - notebooks:/app/notebooks
       - ./data:/app/data
+      - ./docs:/app/docs:ro
     ports:
       - "8888:8888"
     command: >
@@ -47,8 +60,10 @@ services:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ./:/app
+      - outputs:/app/outputs
       - notebooks:/app/notebooks
       - ./data:/app/data
+      - ./docs:/app/docs:ro
     ports:
       - "8866:8866"
     command: >

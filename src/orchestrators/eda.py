@@ -11,26 +11,19 @@ from src.datanalysis.eda_summary import EDASummary
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.message_taxonomy import EDA_DONE, EDA_START
-from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
-"""
-EDA orchestrator: YData profile and JSON summary with structured logs.
-"""
-
-# Constants
 EDA_DIR = "eda"
 KEY_PROFILE_PATH = "profile_path"
 KEY_SUMMARY_PATH = "summary_path"
 KEY_SUMMARY_DATA = "summary_data"
 KEY_FLAGS = "flags"
+
 LOGGER_NAME = "mlp.orchestrators.eda"
 DOMAIN = "eda"
 
 
 def _as_target(y: pd.Series | None) -> pd.Series | None:
-    """
-    Retourne y avec name='target' sans utiliser Series.rename pour éviter les surcharges typées.
-    """
     if y is None:
         return None
     if getattr(y, "name", None) == "target":
@@ -39,7 +32,6 @@ def _as_target(y: pd.Series | None) -> pd.Series | None:
     try:
         y2.name = "target"
     except Exception:
-        # Si l’attribut est verrouillé, retomber sur une copie matérielle
         y2 = y.copy(deep=True)
         y2.name = "target"
     return y2
@@ -58,14 +50,12 @@ class EDAOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, logger_manager))
         self.log: Any = getattr(self, "log", None)
 
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessageOrchestratorApp | None = None
 
-    def attach_message(self, msg: MessageOrchestrator) -> None:
-        """Attach a MessageOrchestrator for localized emissions."""
+    def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def run(self, x: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:
-        """Execute EDA and return artifacts and summary."""
         n_rows, n_cols = x.shape
         if self.msg:
             self.msg.emit(DOMAIN, EDA_START, out_dir=self.out_dir, n_rows=n_rows, n_cols=n_cols)

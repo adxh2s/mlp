@@ -29,9 +29,9 @@ def run() -> None:
 
     outputs_dir = st.session_state.get("outputs_dir", "outputs")
     project_name = st.session_state.get("project_name", "demo_project")
+
     root = _project_root(outputs_dir, project_name)
     rep_root = root / "report"
-
     if not rep_root.exists():
         st.info(tr("MSG_NO_REPORT_DIR"))
         return

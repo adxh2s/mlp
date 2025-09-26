@@ -5,11 +5,7 @@ from omegaconf import DictConfig
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_factory import build_logger_manager
 from src.instrumentation.logger_manager import LoggerManager
-from src.orchestrators.message import MessageOrchestrator
-
-"""
-Logger orchestrator: build and configure LoggerManager, and emit 'logger_ready'.
-"""
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
 LOGGER_DOMAIN = "logger"
 
@@ -22,15 +18,10 @@ class LoggerOrchestrator:
         self.lm: LoggerManager | None = None
 
     def run(self, config_manager: ConfigManager) -> LoggerManager:
-        """
-        Build and configure LoggerManager, then emit 'logger_ready' once.
-        Returns a configured LoggerManager instance.
-        """
         settings = self.hydra_cfg.get("logger")
         self.lm = build_logger_manager(settings)
         self.lm.configure()
-
-        msg = MessageOrchestrator(config_manager, logger_manager=self.lm)
+        msg = MessageOrchestratorApp(config_manager, logger_manager=self.lm)
         msg.emit(
             LOGGER_DOMAIN,
             "logger_ready",

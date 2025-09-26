@@ -8,13 +8,8 @@ from src.datavisualization.report_renderer import ReportRenderer
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.message_taxonomy import REPORT_DONE, REPORT_START
-from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
-"""
-Report orchestrator: render consolidated report and emit events.
-"""
-
-# Constants
 REPORT_DIR = "report"
 TEMPLATES_DIR = "src/templates"
 LOGGER_NAME = "mlp.orchestrators.report"
@@ -36,7 +31,6 @@ class ReportOrchestrator(LoggerMixin):
         self.app_cfg = app_cfg
         self.ctx = ctx or {}
 
-        # Resolve out_dir: ctx['report_dir'] > project_dir/report
         if self.ctx.get("report_dir"):
             self.out_dir = self.ctx["report_dir"]
         else:
@@ -44,18 +38,17 @@ class ReportOrchestrator(LoggerMixin):
         os.makedirs(self.out_dir, exist_ok=True)
 
         self.renderer = ReportRenderer(TEMPLATES_DIR)
+
         self.LOGGER_NAME = LOGGER_NAME
         self._init_logger(cast(Any, logger_manager))
         self.log: Any = getattr(self, "log", None)
 
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessageOrchestratorApp | None = None
 
-    def attach_message(self, msg: MessageOrchestrator) -> None:
-        """Attach a MessageOrchestrator for localized emissions."""
+    def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def run(self, eda_payload: dict[str, Any], pipe_payload: dict[str, Any]) -> dict[str, Any]:
-        """Render report and return artifact metadata."""
         if self.msg:
             self.msg.emit(DOMAIN, REPORT_START, out_dir=self.out_dir)
         else:

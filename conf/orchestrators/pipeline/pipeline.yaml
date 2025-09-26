@@ -1,0 +1,208 @@
+# conf/orchestrators/pipeline.yaml
+package: orchestrators.pipeline
+enabled: true
+out_dir: "outputs/mlp/pipeline_cv"
+active: ["dl_dense_auto"]
+
+cv:
+  type: grid
+  n_iter: 10
+  factor: 2
+  scoring:
+    f1: f1
+    roc_auc: roc_auc
+  refit: f1
+  cv_folds: 5
+  shuffle: true
+  random_state: 42
+  n_jobs: 4
+  verbose: 1
+  return_train_score: true
+  error_score: "raise"
+
+policy:
+  strategy: auto
+  numeric:
+    scaler: auto
+    robust_outlier_iqr: 3.0
+  categorical:
+    encoder: auto
+    max_onehot_cardinality: 20
+    handle_unknown: ignore
+    min_frequency: 0.01
+
+pipeline:
+
+- name: lin_svc
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
+        enabled: true
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+    reduction:
+      type: pca
+      params:
+        n_components: [10, 20, 40]
+    estimator:
+      type: "sklearn.svm.SVC"
+      params:
+        C: [0.1, 1.0, 10.0]
+        kernel: ["linear"]
+
+- name: rf_grid
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
+        enabled: true
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+    estimator:
+      type: "sklearn.ensemble.RandomForestClassifier"
+      params:
+        n_estimators: [10, 20]
+        max_depth: [null, 5, 10]
+
+- name: svc_random
+  enabled: false
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
+        enabled: true
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+    estimator:
+      type: "sklearn.svm.SVC"
+      params:
+        kernel: ["rbf"]
+      distributions:
+        C: { dist: loguniform, low: 1e-3, high: 1e2 }
+        gamma: { dist: loguniform, low: 1e-4, high: 1e-1 }
+
+- name: tpot_auto
+  enabled: false
+  steps: {}
+  automl:
+    library: tpot
+    name: tpot_auto
+    tpot:
+      scoring: f1_weighted
+      cv: 5
+      verbose: 4
+      verbosity: 4
+      generations: 5
+      population_size: 50
+      preprocessing: true
+      use_dask: true
+      n_workers: 4
+      threads_per_worker: 1
+      memory_limit: "2GB"
+      wait_for_workers: 4
+      wait_timeout_s: 30
+      export_best_pipeline: true
+      export_path: "outputs/mlp/automl/tpot_best_pipeline.py"
+
+- name: lazy_cls
+  enabled: false
+  automl:
+    library: lazypredict
+    name: "lazy_default"
+    lazy:
+      include: []
+      exclude: []
+      custom_metric: null
+      cv: 5
+      n_jobs: -1
+      verbose: 0
+      top_n: 25
+      save_table: true
+      table_path: "outputs/mlp/automl/lazy_results.csv"
+
+- name: dl_dense_auto
+  enabled: true
+  steps:
+    preprocess:
+      enabled: true
+      column_transformer:
+        enabled: true
+        policy: auto
+        numeric:
+          imputer: simple
+          scaler: StandardScaler
+        categorical:
+          imputer: simple
+          encoder: OneHotEncoder
+          handle_unknown: ignore
+          min_frequency: 0.01
+  automl:
+    library: dl
+    name: dl_dense_auto
+    dl:
+      backend: keras
+      model:
+        type: sequential
+        input_shape: null
+        task: binary
+        n_classes: 2
+        auto_output: true
+        layers:
+          - type: Dense
+            params: { units: 256, activation: relu }
+          - type: Dropout
+            params: { rate: 0.2 }
+          - type: Dense
+            params: { units: 128, activation: relu }
+      compile:
+        optimizer: { name: adam, lr: 0.001 }
+        loss: auto
+        metrics: [accuracy, AUC]
+      fit:
+        epochs: 50
+        batch_size: 64
+        validation_split: 0.2
+        verbose: 1
+      callbacks:
+        early_stopping:
+          enabled: true
+          monitor: val_loss
+          patience: 10
+          restore_best_weights: true
+        reduce_lr:
+          enabled: true
+          monitor: val_loss
+          factor: 0.5
+          patience: 5
+          min_lr: 1e-6
+        checkpoint:
+          enabled: true
+          filepath: outputs/dl/best_model.keras
+          monitor: val_loss
+          save_best_only: true
+      export:
+        save_model: true
+        path: outputs/dl/final_model.keras
+        save_history_csv: outputs/dl/history.csv

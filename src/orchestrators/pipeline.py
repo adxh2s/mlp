@@ -15,9 +15,8 @@ from src.instrumentation.message_taxonomy import (
     PIPELINE_START,
 )
 from src.modeling.pipeline.evaluator import PipelineEvaluator
-from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
-# Constantes module
 LOGGER_NAME = "mlp.orchestrators.pipeline"
 DOMAIN = "pipeline"
 PIPELINE_DIRNAME = "pipeline"
@@ -25,12 +24,6 @@ KEY_RESULTS = "results"
 
 
 class PipelineOrchestrator(LoggerMixin):
-    """
-    Exécute les pipeline déclarés et agrège leurs résultats, avec journalisation et événements. 
-    - La sortie des artefacts est résolue par priorité: arg out_dir > YAML > project_dir/pipeline. 
-    - Le logger est injecté via logger_manager (SupportsGetLogger). 
-    """
-
     def __init__(  # noqa: PLR0913
         self,
         cfg: PipelineConfig,
@@ -43,7 +36,7 @@ class PipelineOrchestrator(LoggerMixin):
         self.cfg = cfg
         self.random_state = random_state
         self.ctx = ctx or {}
-        # Résolution du répertoire de sortie
+
         cfg_out = getattr(self.cfg, "out_dir", None)
         base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
         if out_dir:
@@ -55,20 +48,16 @@ class PipelineOrchestrator(LoggerMixin):
             self.out_dir = base_dir / PIPELINE_DIRNAME
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
-        # Logging
         self.LOGGER_NAME = LOGGER_NAME
         if logger_manager:
             self._init_logger(logger_manager)
 
-        # Message (injecté par l’orchestrateur général)
-        self.msg: MessageOrchestrator | None = None
+        self.msg: MessageOrchestratorApp | None = None
 
-    def attach_message(self, msg: MessageOrchestrator) -> None:
-        """Attache l’émetteur de message localisés (structlog) pour ce domaine."""
+    def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def _filter_active_specs(self) -> list[dict[str, Any]]:
-        """Retourne les specs actives (enabled et dans 'active' si présent)."""
         active = set(getattr(self.cfg, "active", []) or [])
         specs: list[dict[str, Any]] = []
         for spec in self.cfg.pipeline:
@@ -81,11 +70,6 @@ class PipelineOrchestrator(LoggerMixin):
         return specs
 
     def run(self, x: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
-        """
-        Construit et évalue les pipeline actifs, émet des événements, retourne la synthèse. 
-        - x: caractéristiques 
-        - y: cibles 
-        """
         if not self.cfg.enabled:
             if self.msg:
                 self.msg.emit(DOMAIN, PIPELINE_DISABLED)
@@ -96,6 +80,7 @@ class PipelineOrchestrator(LoggerMixin):
             self.msg.emit(DOMAIN, PIPELINE_START, out_dir=str(self.out_dir), count=len(specs))
 
         results: list[dict[str, Any]] = []
+
         cv_cfg = getattr(self.cfg, "cv", {}) or {}
         global_policy = getattr(self.cfg, "policy", {}) or {}
 

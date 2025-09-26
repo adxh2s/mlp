@@ -9,30 +9,26 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
-from src.orchestrators.message import MessageOrchestrator
-
-"""
-App orchestrator: bootstrap logging and configuration, and build a Hydra-safe ctx.
-"""
+from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
 
 class AppOrchestrator:
     """Boot logger + config, expose logger_manager, config_manager and ctx."""
 
     def __init__(self, hydra_cfg: DictConfig) -> None:
-        # 1) Config manager (Hydra -> Pydantic)
+        # 1) Config manager
         self.config_manager = ConfigManager(hydra_cfg)
 
         # 2) Logger bootstrap first
         self.logger_orchestrator = LoggerOrchestrator(hydra_cfg)
         self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
 
-        # 3) Config orchestrator: validate and expose AppConfig + message
+        # 3) Config orchestrator
         self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
         app_cfg = self.config_orchestrator.get_app_config()
 
         # 4) Message (shared) for downstream orchestrators
-        self.message_orchestrator = MessageOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        self.message_orchestrator = MessageOrchestratorApp(self.config_manager, logger_manager=self.logger_manager)
 
         # 5) Build ctx (Hydra-safe absolute paths)
         root = Path(get_original_cwd())

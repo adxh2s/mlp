@@ -3,6 +3,7 @@ defaults:
   - orchestrators/message@orchestrators.message: message
   - orchestrators/file@orchestrators.file: file
   - orchestrators/data@orchestrators.data: data
+  - orchestrators/eda@orchestrators.eda: eda
   - orchestrators/pipeline@orchestrators.pipeline: pipeline
   - orchestrators/report@orchestrators.report: report
   - _self_

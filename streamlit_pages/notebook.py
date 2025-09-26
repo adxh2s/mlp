@@ -48,7 +48,7 @@ def run() -> None:
     if ipynb:
         nb = st.selectbox("Notebook", ipynb, format_func=lambda p: p.relative_to(root))
         if notebook_url:
-            # Hypothèse: Voilà sert /voila/render/<path_from_root>
+            # Hypothèse: Voilà sert /voila/render/
             rel = nb.relative_to(root).as_posix()
             components.iframe(f"{notebook_url.rstrip('/')}/voila/render/{rel}", height=800)
         else:

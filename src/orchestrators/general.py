@@ -24,17 +24,19 @@ from src.instrumentation.message_taxonomy import (
     REPORT_ORCHESTRATOR_FAILED,
     USING_EXAMPLE_DATA,
 )
+from src.orchestrators.config import ConfigOrchestrator  # délégation config/ctx
 from src.orchestrators.data import DataOrchestrator
 from src.orchestrators.eda import EDAOrchestrator
 from src.orchestrators.file import FileOrchestrator
-from src.orchestrators.message import MessageOrchestrator
+from src.orchestrators.message import MessageOrchestratorApp
 from src.orchestrators.pipeline import PipelineOrchestrator
 from src.orchestrators.report import ReportOrchestrator
 
 """
 General orchestrator: coordinate file→data→EDA→pipeline→report with localized, structured logging.
-- Builds or reuses shared LoggerManager/MessageOrchestrator and propagates context (ctx).
-- Supports starting from files or directly from provided DataFrame/Series.
+
+- Builds or reuses shared LoggerManager/MessageOrchestrator and consumes a context (ctx).
+- If no ctx is provided, delegates config/ctx construction to ConfigOrchestrator.
 """
 
 LOGGER_NAME = "mlp.orchestrators.general"
@@ -47,15 +49,9 @@ KEY_REPORT = "report"
 
 
 def _example_data() -> tuple[pd.DataFrame, pd.Series]:
-    """
-    Load scikit-learn's breast_cancer dataset without exposing global loader symbols.
-    Uses return_X_y=True and as_frame=True to avoid ambiguous Bunch unions for Pylance.
-    """
-    from sklearn.datasets import load_breast_cancer  # local import to avoid global alias
+    from sklearn.datasets import load_breast_cancer
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
-    x_df = cast(pd.DataFrame, X)
-    y_ser = cast(pd.Series, y)
-    return x_df, y_ser
+    return cast(pd.DataFrame, X), cast(pd.Series, y)
 
 
 class GeneralOrchestrator(LoggerMixin):
@@ -65,7 +61,7 @@ class GeneralOrchestrator(LoggerMixin):
         self,
         config_manager: ConfigManager,
         logger_manager: Any | None = None,
-        message_orchestrator: MessageOrchestrator | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
         ctx: dict[str, str] | None = None,
     ) -> None:
         self.config_manager = config_manager
@@ -76,17 +72,16 @@ class GeneralOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, self.lm))
         self.LOGGER_NAME = LOGGER_NAME
 
-        # Message
-        self.msg_orch = message_orchestrator or MessageOrchestrator(self.config_manager, logger_manager=self.lm)
+        # Message (app-level)
+        self.msg_orch = message_orchestrator or MessageOrchestratorApp(
+            self.config_manager, logger_manager=self.lm
+        )
 
-        # Context (fallback if not provided)
+        # Context: prefer injected; else, delegate to ConfigOrchestrator
         if ctx is None:
-            root_dir = Path(self.config_manager.project_root)
-            outputs_root = (root_dir / self.cfg.project.output_dir).resolve()
-            project_dir = (outputs_root / self.cfg.project.name).resolve()
-            for d in (outputs_root, project_dir):
-                d.mkdir(parents=True, exist_ok=True)
-            self.ctx = {"outputs_root": str(outputs_root), "project_dir": str(project_dir)}
+            cfg_orch = ConfigOrchestrator(self.config_manager, logger_manager=cast(Any, self.lm))
+            self.cfg = cast(AppConfig, cfg_orch.get_app_config())
+            self.ctx = cfg_orch.run()
         else:
             self.ctx = ctx
 
@@ -100,9 +95,6 @@ class GeneralOrchestrator(LoggerMixin):
         return lm
 
     def load_example_data(self) -> tuple[pd.DataFrame, pd.Series]:
-        """
-        Wrapper for loading example dataset without Pylance union diagnostics.
-        """
         return _example_data()
 
     def _attach_message(self, *children: Any) -> None:
@@ -118,7 +110,9 @@ class GeneralOrchestrator(LoggerMixin):
         # File
         if orchestrators.file and orchestrators.file.enabled:
             try:
-                file_orch = FileOrchestrator(orchestrators.file, logger_manager=cast(Any, self.lm), ctx=self.ctx)
+                file_orch = FileOrchestrator(
+                    orchestrators.file, logger_manager=cast(Any, self.lm), ctx=self.ctx
+                )
                 self._attach_message(file_orch)
                 file_result = file_orch.process_input()
                 results[KEY_FILE] = file_result
@@ -142,7 +136,7 @@ class GeneralOrchestrator(LoggerMixin):
                 results[KEY_DATA] = data_result
                 x, y = data_result["X"], data_result["y"]
 
-                # Write a 5-row preview
+                # Write a 5-row preview under EDA dir
                 eda_dir = Path(self.ctx.get("eda_dir", Path(self.project_dir) / "eda"))
                 eda_dir.mkdir(parents=True, exist_ok=True)
                 preview_path = eda_dir / "data_preview_head.csv"
@@ -166,7 +160,11 @@ class GeneralOrchestrator(LoggerMixin):
             KEY_DATA: {
                 "X": x,
                 "y": y,
-                "metadata": {"features_count": x.shape[1], "samples_count": x.shape[0], "has_target": y is not None},
+                "metadata": {
+                    "features_count": x.shape[1],
+                    "samples_count": x.shape[0],
+                    "has_target": y is not None,
+                },
             }
         }
         self.msg_orch.emit(DOMAIN, GENERAL_START_FROM_DATA, shape=str(x.shape))
@@ -216,7 +214,9 @@ class GeneralOrchestrator(LoggerMixin):
         # Report
         if orchestrators.report.enabled:
             try:
-                rep = ReportOrchestrator(orchestrators.report, self.project_dir, self.cfg, logger_manager=cast(Any, self.lm), ctx=self.ctx)
+                rep = ReportOrchestrator(
+                    orchestrators.report, self.project_dir, self.cfg, logger_manager=cast(Any, self.lm), ctx=self.ctx
+                )
                 self._attach_message(rep)
                 results[KEY_REPORT] = rep.run(results.get(KEY_EDA, {}), results.get(KEY_PIPELINE, {"results": []}))
             except Exception as exc:  # noqa: BLE001
@@ -227,8 +227,13 @@ class GeneralOrchestrator(LoggerMixin):
 
     def run(self, x: pd.DataFrame | None = None, y: pd.Series | None = None) -> dict[str, Any]:
         file_enabled = bool(self.cfg.orchestrators.file and self.cfg.orchestrators.file.enabled)
-        self.msg_orch.emit(DOMAIN, "branch_decision", file_enabled=file_enabled, x_present=(x is not None), y_present=(y is not None))
-
+        self.msg_orch.emit(
+            DOMAIN,
+            "branch_decision",
+            file_enabled=file_enabled,
+            x_present=(x is not None),
+            y_present=(y is not None),
+        )
         if x is None and file_enabled:
             return self.run_from_files()
         if x is not None:
@@ -241,7 +246,6 @@ class GeneralOrchestrator(LoggerMixin):
                 reason="No input data found; example fallback disabled",
             )
             return {"error": "no_input_data", "fallback_used": False}
-
         self.msg_orch.emit(DOMAIN, USING_EXAMPLE_DATA)
         x_ex, y_ex = self.load_example_data()
         return self.run_from_data(x_ex, y_ex)
