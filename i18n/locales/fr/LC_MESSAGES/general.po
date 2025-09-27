@@ -37,7 +37,7 @@ msgstr "Orchestrateur de données désactivé et données brutes non-DataFrame"
 msgid "eda_orchestrator_failed"
 msgstr "Échec de l’orchestrateur EDA: {error}"
 
-msgid "pipelines_orchestrator_failed"
+msgid "pipeline_orchestrator_failed"
 msgstr "Échec de l’orchestrateur Pipelines: {error}"
 
 msgid "report_orchestrator_failed"

@@ -1,7 +1,6 @@
-# i18n/locales/fr/LC_MESSAGES/streamlit_app.po
 msgid ""
 msgstr ""
-"Project-Id-Version: mlp\n"
+"Project-Id-Version: mlp 1.0\n"
 "Language: fr\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 

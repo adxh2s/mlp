@@ -83,7 +83,7 @@ def _compose_and_bootstrap(outputs_dir: str, project_name: str):
 def _run_with_request(cfg, cfg_mgr: ConfigManager, ctx: dict[str, str]) -> None:
     cfg_mgr.cfg = cfg
     cfg_mgr.load()
-    with st.spinner("Running pipelines..."):
+    with st.spinner("Running pipeline..."):
         GeneralOrchestrator(cfg_mgr, ctx=ctx).run()
 
 

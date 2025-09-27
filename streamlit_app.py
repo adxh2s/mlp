@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+import streamlit as st
+
+# Configuration de la page (unique)
+APP_TITLE: str = "MLP App"
+APP_ICON: str = "📊"
+PAGE_LAYOUT: str = "wide"
+st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=PAGE_LAYOUT)
+
 import os
 import re
 import glob
@@ -8,14 +16,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Mapping, MutableMapping
 from typing import Any, cast
 
-import streamlit as st
 from omegaconf import DictConfig, OmegaConf
-
-# Configuration de la page (unique)
-APP_TITLE: str = "MLP App"
-APP_ICON: str = "📊"
-PAGE_LAYOUT: str = "wide"
-st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=PAGE_LAYOUT)
 
 # Imports dépendants du projet (tolérance si absents)
 try:
@@ -102,15 +103,15 @@ def _init_i18n(cfg: DictConfig) -> Callable[[str], str]:
     try:
         if MessageOrchestrator is not None:
             locales_dir = (
-                cfg.get("i18n", {}).get("locales_dir", DEFAULT_LOCALES_DIR)  # type: ignore[assignment]
+                cfg.get("i18n", {}).get("locales_dir", DEFAULT_LOCALES_DIR)
                 if isinstance(cfg, Mapping) else DEFAULT_LOCALES_DIR
             )
             domain = (
-                cfg.get("i18n", {}).get("domain", DEFAULT_I18N_DOMAIN)  # type: ignore[assignment]
+                cfg.get("i18n", {}).get("domain", DEFAULT_I18N_DOMAIN)
                 if isinstance(cfg, Mapping) else DEFAULT_I18N_DOMAIN
             )
             locale = (
-                cfg.get("i18n", {}).get("locale", "fr")  # type: ignore[assignment]
+                cfg.get("i18n", {}).get("locale", "fr")
                 if isinstance(cfg, Mapping) else "fr"
             )
             mo = MessageOrchestrator(
@@ -148,7 +149,9 @@ def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> 
     """
     md_dir = Path(md_file).parent
     md_dir_rel = md_dir.relative_to(docs_base)  # ex: fr/home
-    static_base = f"app/static/{docs_base}/{md_dir_rel.as_posix()}/"
+    # IMPORTANT: l’URL statique ne doit pas inclure “/app” même si docs_base est absolu
+    docs_url_root = os.path.basename(os.path.normpath(docs_base)) if os.path.isabs(docs_base) else docs_base
+    static_base = f"app/static/{docs_url_root}/{md_dir_rel.as_posix()}/"
 
     def _rewrite_src(src: str) -> str:
         s = src.strip().strip('\'"')
@@ -163,7 +166,7 @@ def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> 
         alt = m.group("alt")
         src = m.group("src")
         # Gérer optionnellement un "title" après le chemin
-        if " " in src and not src.strip().startswith(("http://","https://","app/static/")):
+        if " " in src and not src.strip().startswith(("http://", "https://", "app/static/")):
             p, _, title = src.strip().partition(" ")
             new = _rewrite_src(p)
             return f'![{alt}]({new} {title})'
@@ -251,6 +254,7 @@ def _sidebar(tr: Callable[[str], str], pages: "OrderedDict[str, Callable[[], Non
             value=cast(str, st.session_state.get(SS_OUTPUTS_DIR, "")),
             key=SS_OUTPUTS_DIR,
         )
+        # dev -> a retirer en prod (laisser figé via MLP_DOCS_DIR)
         st.text_input(
             label=tr("LBL_DOCS_DIR") if callable(tr) else "Docs dir",
             value=cast(str, st.session_state.get(SS_DOCS_DIR, "")),
@@ -271,6 +275,7 @@ def _sidebar(tr: Callable[[str], str], pages: "OrderedDict[str, Callable[[], Non
             value=cast(str, st.session_state.get(SS_LANG, "")),
             key=SS_LANG,
         )
+        # dev -> a retirer en prod (bouton aide)
         col1, col2 = st.columns(2)
         with col1:
             if st.button(tr("BTN_CLEAR_CACHE") if callable(tr) else "Vider le cache"):
@@ -282,21 +287,14 @@ def _sidebar(tr: Callable[[str], str], pages: "OrderedDict[str, Callable[[], Non
                 st.info(HELP_TEXT)
         return page_label
 
-# -------------------- Entrée principale --------------------
-
 def main() -> None:
     _init_defaults()
     cfg = _load_config()
     tr = _init_i18n(cfg)
-
-    # Exposer le helper pour les pages (si besoin)
     st.session_state["render_docs"] = render_docs
-
     pages = _pages_registry(tr)
     page_label = _sidebar(tr, pages)
-
     st.title(APP_TITLE)
-
     runner = pages.get(page_label)
     if runner is None:
         st.error(f"Page inconnue: {page_label}")

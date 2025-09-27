@@ -24,6 +24,7 @@ find "$ROOT_DIR" -type d -name "LC_MESSAGES" | while IFS= read -r lcd; do
     mo="${po%.po}.mo"
     echo "Compil.: $po -> $mo"
     msgfmt -o "$mo" "$po"
+    msgfmt --check-format -o "$mo" "$po"
     shcount=$((shcount + 1))
     total=$((total + 1))
   done

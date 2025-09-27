@@ -5,33 +5,30 @@ services:
     environment:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - MLP_OUTPUTS_DIR=/app/outputs
-      - MLP_PROJECT_NAME=demo_project
+      - MLP_PROJECT_NAME=nba_project
       - MLP_NOTEBOOKS_DIR=/app/notebooks
       - MLP_NOTEBOOKS_URL=http://localhost:8866
       - MLP_LANG=fr
       - MLP_DOCS_DIR=/app/docs
-      - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true
+      - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true  # sert app/static/...
     volumes:
-      - ./:/app
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data
-      - ./docs:/app/docs:ro
+      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
+      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
+      - ./docs:/app/static/docs:ro           # dev -> a retirer en prod si inutile
     ports:
       - "8501:8501"
-    command: >
-      sh -c '
-        mkdir -p /app/static &&
-        ln -sfn /app/docs /app/static/docs &&
-        if [ -d "i18n/locales" ]; then
-          find i18n/locales -name "*.po" -type f -print0 |
-          xargs -0 -I "{}" sh -c '"'"'msgfmt "$$1" -o "$${1%.po}.mo"'"'"' sh "{}";
-        fi &&
-        uv run streamlit run streamlit_app.py
-        --server.address=0.0.0.0 --server.port=8501
-      '
+    command:
+      - /opt/venv/bin/python
+      - -m
+      - streamlit
+      - run
+      - streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
     restart: unless-stopped
-    
+
   notebooks:
     build: .
     container_name: mlp_notebooks
@@ -39,17 +36,22 @@ services:
     environment:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
-      - ./:/app
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data
-      - ./docs:/app/docs:ro
+      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
+      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
     ports:
       - "8888:8888"
-    command: >
-      uv run jupyter lab
-      --ip=0.0.0.0 --port=8888 --no-browser --allow-root
-      --NotebookApp.token=''
+    command:
+      - /opt/venv/bin/python
+      - -m
+      - jupyter
+      - lab
+      - --ip=0.0.0.0
+      - --port=8888
+      - --no-browser
+      - --allow-root
+      - --NotebookApp.token=
     restart: unless-stopped
 
   voila:
@@ -59,17 +61,20 @@ services:
     environment:
       - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
-      - ./:/app
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data
-      - ./docs:/app/docs:ro
+      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
+      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
     ports:
       - "8866:8866"
-    command: >
-      uv run voila
-      --Voila.ip=0.0.0.0 --port=8866 --no-browser
-      --Voila.root_dir=/app
+    command:
+      - /opt/venv/bin/python
+      - -m
+      - voila
+      - --Voila.ip=0.0.0.0
+      - --port=8866
+      - --no-browser
+      - --Voila.root_dir=/app
     restart: unless-stopped
 
 volumes:

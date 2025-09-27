@@ -4,17 +4,17 @@ msgstr ""
 "Language: fr\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
-msgid "pipelines_disabled"
+msgid "pipeline_disabled"
 msgstr "Pipelines désactivés"
 
-msgid "pipelines_start"
-msgstr "Démarrage des pipelines (sortie: {out_dir}, n={n_rows}x{n_cols})"
+msgid "pipeline_start"
+msgstr "Démarrage des pipeline (sortie: {out_dir}, n={n_rows}x{n_cols})"
 
-msgid "pipelines_eval_start"
+msgid "pipeline_eval_start"
 msgstr "Évaluation du pipeline {name}"
 
-msgid "pipelines_eval_done"
+msgid "pipeline_eval_done"
 msgstr "Évaluation terminée pour {name} (score {best_score})"
 
-msgid "pipelines_done"
+msgid "pipeline_done"
 msgstr "Pipelines terminés (total {count})"

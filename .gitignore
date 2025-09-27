@@ -17,11 +17,8 @@
 # Ignore log files
 /logs/
 *.log
-
 /.*/
 
-# Context files - optionnel
-session-context.md
 
 # Métadonnées de packaging
 *.egg-info/

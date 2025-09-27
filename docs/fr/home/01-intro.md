@@ -116,4 +116,5 @@ Lecture: bon équilibre précision/rappel; meilleure détection des tirs ratés 
 # NBA — Modèles Entraînements et résultats
 
 ![Matrice de confusion RF1](images/01-confusion-matrix-rf1.png "Matrice de confusion LNR")
-![Features Selection](images/02-features.png "Features Selection")
+![Features Selection](/app/static/docs/fr/home/images/02-features.png "Features Selection")
+![Courbe loss](images/06-loss.png "Courbe loss")
