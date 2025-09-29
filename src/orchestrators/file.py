@@ -13,7 +13,7 @@ Contrat:
 - Le contexte (ctx) est fourni par ConfigOrchestrator/AppOrchestrator et doit contenir:
   - 'data_in': chemin absolu du dossier d'entrée.
   - 'data_out': chemin absolu du dossier de sortie.
-- Aucun fallback Hydra/cwd n'est réalisé ici pour préserver la séparation des responsabilités.
+- Aucun fallback de chemins (Hydra/cwd) n'est réalisé ici, pour préserver la séparation des responsabilités.
 """
 
 import logging
@@ -32,6 +32,7 @@ from src.instrumentation.message_taxonomy import (
     INPUT_PROCESSED,
     NO_INPUT_FILE,
 )
+from src.orchestrators.bootstrap import bootstrap_instance  # bootstrap cfg uniquement
 from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
 
 # =========================
@@ -68,10 +69,9 @@ class FileConfig:
     Configuration interne normalisée pour l'orchestrateur de fichiers.
 
     Notes:
-    - La config effective vient typiquement de Pydantic (FileConfigModel) ou d'un dict Hydra;
+    - La config effective vient typiquement de Pydantic (FileConfigModel) ou d'un dict (Hydra);
       ce dataclass sert de réceptacle après normalisation.
     """
-
     enabled: bool = True
     data_dir: str = "data"
     in_dir: str = "in"
@@ -97,7 +97,6 @@ class FileConfigDict(TypedDict, total=False):
 def _coerce_cfg_dict(raw: Mapping[str, Any]) -> FileConfigDict:
     """
     Normalise un mapping arbitraire en FileConfigDict.
-
     - Cast des types simples.
     - Filtrage des séquences pour extensions.
     """
@@ -127,7 +126,6 @@ def _coerce_cfg_dict(raw: Mapping[str, Any]) -> FileConfigDict:
 def _to_dict_cfg(cfg: object) -> FileConfigDict:
     """
     Convertit une config Pydantic/dataclass/dict en FileConfigDict.
-
     - Utilise model_dump() si disponible (Pydantic v2).
     - asdict() pour dataclass.
     - Mapping direct sinon.
@@ -155,6 +153,18 @@ def _evt(e: object) -> str:
     if isinstance(e, (list, tuple)) and len(e) > 0:
         return str(e[0])
     return str(e)
+
+
+DEFAULTS: dict[str, Any] = {
+    "enabled": True,
+    "data_dir": "data",
+    "in_dir": "in",
+    "out_dir": "out",
+    "extensions": [".csv", ".xlsx", ".json"],
+    "save_input_file": True,
+    "save_input_file_compression": False,
+    "preferred_filename": None,
+}
 
 
 class FileOrchestrator(LoggerMixin):
@@ -206,8 +216,56 @@ class FileOrchestrator(LoggerMixin):
         self.in_dir = Path(self.ctx[CTX_DATA_IN]).resolve()
         self.out_dir = Path(self.ctx[CTX_DATA_OUT]).resolve()
 
+        # in_dir requis; out_dir best-effort (tolérer RO / non créable)
         self.fm.ensure_dir(self.in_dir)
-        self.fm.ensure_dir(self.out_dir)
+        try:
+            self.fm.ensure_dir(self.out_dir)
+        except (OSError, PermissionError) as e:
+            try:
+                self.log.warning(
+                    "ensure_out_dir_failed",
+                    extra={LOG_EXTRA: {FIELD_OUT_DIR: str(self.out_dir), "error": str(e)}},
+                )
+            except Exception:
+                pass
+
+    @classmethod
+    def bootstrap(
+        cls,
+        *,
+        context_provider,  # callable: name -> mapping (doit fournir ctx avec data_in/data_out)
+        logger_manager: LoggerManager | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
+        ini_filenames: tuple[str, ...] = ("file.ini", "default.ini"),
+    ) -> "FileOrchestrator":
+        """
+        Bootstrap de configuration uniquement (aucun fallback de chemins); ctx reste obligatoire.
+        - Priorité: contexte applicatif -> INI -> defaults, puis validate à l'instanciation.
+        """
+        def factory(params: dict[str, Any]) -> "FileOrchestrator":
+            ctx = params.pop("_ctx", {})
+            inst = cls(params, logger_manager=logger_manager, ctx=ctx)
+            if message_orchestrator is not None:
+                inst.attach_message(message_orchestrator)
+            return inst
+
+        def validator(inst: "FileOrchestrator") -> None:
+            return
+
+        def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
+            ctx = context_provider("file") or {}
+            params = dict(ctx.get("orchestrators", {}).get("file", {})) if isinstance(ctx.get("orchestrators"), dict) else {}
+            params["_ctx"] = ctx
+            return params
+
+        return bootstrap_instance(
+            name="file",
+            factory=factory,
+            defaults=DEFAULTS,
+            validator=validator,
+            context_provider=wrapped_context_provider,
+            ini_filenames=ini_filenames,
+        )
 
     @classmethod
     def from_cfg_mgr(
@@ -216,9 +274,7 @@ class FileOrchestrator(LoggerMixin):
         logger_manager: LoggerManager | None = None,
         ctx: dict[str, str] | None = None,
     ) -> FileOrchestrator:
-        """
-        Fabrique un FileOrchestrator à partir d’un ConfigManager-like (.model.orchestrators.file attendu).
-        """
+        """Fabrique un FileOrchestrator à partir d’un ConfigManager-like (.model.orchestrators.file attendu)."""
         cfg = cfg_mgr.model.orchestrators.file
         return cls(cfg, logger_manager=logger_manager, ctx=ctx)
 
@@ -229,9 +285,7 @@ class FileOrchestrator(LoggerMixin):
         logger_manager: LoggerManager | None = None,
         ctx: dict[str, str] | None = None,
     ) -> FileOrchestrator:
-        """
-        Alias de from_cfg_mgr pour compatibilité d’API explicite.
-        """
+        """Alias de from_cfg_mgr pour compatibilité d’API explicite."""
         cfg = config_manager.model.orchestrators.file
         return cls(cfg, logger_manager=logger_manager, ctx=ctx)
 
@@ -241,24 +295,22 @@ class FileOrchestrator(LoggerMixin):
 
     def pick_input_file(self) -> Path | None:
         """
-        Sélectionne le fichier d’entrée:
-        - Priorité à preferred_filename s’il existe.
-        - Sinon, premier fichier correspondant aux extensions autorisées.
+        Sélectionne le fichier d’entrée via FileManager:
+        - Priorité à preferred_filename s’il existe et est présent.
+        - Sinon, plus récent par mtime parmi les extensions autorisées.
         """
-        preferred = self.cfg.preferred_filename
-        if preferred:
-            candidate = (self.in_dir / preferred).resolve()
-            if candidate.exists():
-                return candidate
-        files = self.fm.list_files_by_ext(self.in_dir, self.cfg.extensions)
-        return files[0] if files else None
+        return self.fm.pick_input_file(
+            in_dir=self.in_dir,
+            exts=self.cfg.extensions,
+            preferred_filename=self.cfg.preferred_filename,
+        )
 
     def process_input(self) -> dict[str, Any]:
         """
         Traite l’entrée fichier:
         - Émet FILE_INIT et file_paths_resolved.
         - Cherche un fichier; si absent, NO_INPUT_FILE et payload found=False.
-        - Copie/compresse si configuré, lit les données, émet INPUT_PROCESSED.
+        - Copie/compresse si configuré (tolérant RO), lit les données, émet INPUT_PROCESSED.
         - Retourne un dict avec clés: found, file, saved_copy, saved_copy_compressed, data, meta.
         """
         # Init event
@@ -285,7 +337,7 @@ class FileOrchestrator(LoggerMixin):
                 extra_payload = {LOG_EXTRA: {FIELD_IN_DIR: str(self.in_dir), FIELD_OUT_DIR: str(self.out_dir)}}
                 logger.info(EV_FILE_PATHS_RESOLVED, extra=extra_payload)
 
-        # Pick file
+        # Pick file via FileManager
         f = self.pick_input_file()
         if f is None:
             if self.msg:
@@ -312,16 +364,25 @@ class FileOrchestrator(LoggerMixin):
             if logger is not None:
                 logger.info("input_found", extra={LOG_EXTRA: {FIELD_FILE: str(f)}})
 
-        # Save and compress if configured
+        # Save and compress if configured (tolérant RO)
         saved_path: Path | None = None
         compressed_path: Path | None = None
         if self.cfg.save_input_file:
-            stamped = self.fm.make_timestamp_name(f)
-            saved_path = self.fm.copy_file(f, self.out_dir, rename=stamped)
-            if self.cfg.save_input_file_compression and saved_path is not None:
-                compressed_path = self.fm.compress_file_gz(saved_path, delete_original=True)
+            try:
+                stamped = self.fm.make_timestamp_name(f)  # accepte Path/str selon l’implémentation FileManager
+                saved_path = self.fm.copy_file(f, self.out_dir, rename=stamped)
+                if self.cfg.save_input_file_compression and saved_path is not None:
+                    compressed_path = self.fm.compress_file_gz(saved_path, delete_original=True)
+            except (OSError, PermissionError) as e:
+                logger = getattr(self, "log", None)
+                if logger is not None:
+                    logger.warning(
+                        "file_copy_skipped_rofs",
+                        extra={LOG_EXTRA: {FIELD_OUT_DIR: str(self.out_dir), "error": str(e)}},
+                    )
+                saved_path, compressed_path = None, None
 
-        # Read data
+        # Read data via FileManager
         data = self.fm.read_file(f)
 
         # Done
