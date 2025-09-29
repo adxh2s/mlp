@@ -1,22 +1,33 @@
+version: "3.9"
+
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID:-1001}
+        GID: ${GID:-1001}
+        USER: ${USER:-adhx2s}
     container_name: mlp_app
+    user: "${UID:-1001}:${GID:-1001}"
     environment:
-      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - MLP_OUTPUTS_DIR=/app/outputs
       - MLP_PROJECT_NAME=nba_project
       - MLP_NOTEBOOKS_DIR=/app/notebooks
       - MLP_NOTEBOOKS_URL=http://localhost:8866
       - MLP_LANG=fr
       - MLP_DOCS_DIR=/app/docs
-      - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true  # sert app/static/...
+      - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true
+      - MLP_LOG_FILE=/logs/streamlit_app.log
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
-      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
-      - ./docs:/app/static/docs:ro           # dev -> a retirer en prod si inutile
+      - ./data:/app/data:ro
+      - ./docs:/app/docs:ro
+      - ./docs:/app/static/docs:ro
+      - ./logs:/logs:rw
+      - .:/app:rw
     ports:
       - "8501:8501"
     command:
@@ -30,16 +41,23 @@ services:
     restart: unless-stopped
 
   notebooks:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID:-1001}
+        GID: ${GID:-1001}
+        USER: ${USER:-adhx2s}
     container_name: mlp_notebooks
+    user: "${UID:-1001}:${GID:-1001}"
     working_dir: /app
     environment:
-      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
-      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
+      - ./data:/app/data:ro
+      - ./docs:/app/docs:ro
+      - .:/app:rw
     ports:
       - "8888:8888"
     command:
@@ -55,16 +73,23 @@ services:
     restart: unless-stopped
 
   voila:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID:-1001}
+        GID: ${GID:-1001}
+        USER: ${USER:-adhx2s}
     container_name: mlp_voila
+    user: "${UID:-1001}:${GID:-1001}"
     working_dir: /app
     environment:
-      - PATH=/opt/venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
-      - ./data:/app/data:ro                  # dev -> a retirer en prod si inutile
-      - ./docs:/app/docs:ro                  # dev -> a retirer en prod si inutile
+      - ./data:/app/data:ro
+      - ./docs:/app/docs:ro
+      - .:/app:rw
     ports:
       - "8866:8866"
     command:

@@ -1,57 +1,77 @@
 from __future__ import annotations
 
-"""Page Notebooks: exports HTML et liens/iframes vers serveurs Jupyter/Voilà."""
+"""
+Page Notebooks Streamlit.
+
+Rôle:
+- Lister et afficher les notebooks exportés en HTML.
+- Fournir des liens vers les .ipynb si présents.
+"""
 
 from pathlib import Path
-from typing import Tuple
+from typing import Callable, Tuple, cast
 
 import streamlit as st
 import streamlit.components.v1 as components
 
+from src.instrumentation.decorators import log_page
+
+SS_CTX = "ctx"
+
 
 def _root(notebook_dir: str) -> Path:
-    """Retourne la racine des notebook."""
+    """Retourne le répertoire des notebooks à lister."""
     return Path(notebook_dir)
 
 
 @st.cache_data
 def _list_assets(root: Path) -> Tuple[list[Path], list[Path]]:
-    """Retourne la liste des HTML exportés et des fichiers .ipynb."""
+    """Liste tous les fichiers .html et .ipynb sous le répertoire donné."""
     htmls = sorted(root.rglob("*.html"))
     ipynb = sorted(root.rglob("*.ipynb"))
     return htmls, ipynb
 
 
+@log_page("notebook")
 def run() -> None:
-    """Affiche les exports HTML et propose l’embed d’un notebook servi par Voilà."""
-    tr = st.session_state.get("tr", lambda k, **p: k)
+    """
+    Point d'entrée de la page Notebooks.
+
+    - Détecte le dossier notebooks sous project_dir par défaut.
+    - Affiche un viewer pour les exports HTML, et des liens vers les .ipynb.
+    """
+    tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
     st.title(tr("TITLE_NOTEBOOK"))
 
-    notebook_dir = st.session_state.get("notebook_dir", "notebook")
-    notebook_url = st.session_state.get("notebook_url", "")
+    # Par défaut: {project_dir}/notebooks
+    project_dir = cast(str, st.session_state.get(SS_CTX, {}).get("project_dir", "."))
+    notebook_dir = cast(str, st.session_state.get("notebooks_dir", str(Path(project_dir) / "notebooks")))
+    notebook_url = cast(str, st.session_state.get("notebooks_url", ""))
 
     root = _root(notebook_dir)
     if not root.exists():
-        st.info(f"{tr('MSG_NO_NOTEBOOK_DIR')}: {root}")
+        st.info(f"{tr('MSG_NO_NOTEBOOK_DIR') if callable(tr) else 'Dossier notebooks introuvable'}: {root}")
         return
 
     htmls, ipynb = _list_assets(root)
 
-    st.subheader(tr("LBL_HTML_EXPORTED"))
+    st.subheader(tr("LBL_HTML_EXPORTED") if callable(tr) else "Exports HTML")
     if htmls:
-        sel_html = st.selectbox(tr("LBL_HTML_EXPORTED"), htmls, format_func=lambda p: p.relative_to(root))
+        sel_html = st.selectbox(
+            tr("LBL_HTML_EXPORTED") if callable(tr) else "HTML disponibles",
+            htmls,
+            format_func=lambda p: p.relative_to(root),
+        )
         components.html(sel_html.read_text(encoding="utf-8"), height=800, scrolling=True)
     else:
-        st.info(tr("MSG_NO_HTML"))
+        st.caption("Aucun export HTML trouvé.")
 
-    st.subheader(tr("LBL_NOTEBOOK_SOURCES"))
+    st.subheader(tr("LBL_NOTEBOOKS") if callable(tr) else "Notebooks")
     if ipynb:
-        nb = st.selectbox("Notebook", ipynb, format_func=lambda p: p.relative_to(root))
-        if notebook_url:
-            # Hypothèse: Voilà sert /voila/render/
-            rel = nb.relative_to(root).as_posix()
-            components.iframe(f"{notebook_url.rstrip('/')}/voila/render/{rel}", height=800)
-        else:
-            st.markdown(f"- {nb.relative_to(root)}")
+        for nb in ipynb:
+            if notebook_url:
+                st.markdown(f"- [{nb.name}]({notebook_url.rstrip('/')}/{nb.name})")
+            else:
+                st.markdown(f"- {nb.relative_to(root)}")
     else:
-        st.info(tr("MSG_NO_NOTEBOOK"))
+        st.caption("Aucun .ipynb trouvé.")

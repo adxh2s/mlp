@@ -8,7 +8,6 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-
 class EDASummary:
     FILE_PREFIX = "eda_summary_"
     FILE_EXT = ".json"
@@ -25,18 +24,19 @@ class EDASummary:
         X: pd.DataFrame, y: pd.Series | None, out_dir: str
     ) -> tuple[str, dict[str, Any], dict[str, bool]]:
         os.makedirs(out_dir, exist_ok=True)
+
         n, p = X.shape
         na_counts = X.isna().sum().sort_values(ascending=False)
         dup_count = int(X.duplicated().sum())
+
         numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
         corr = X[numeric_cols].corr().abs() if numeric_cols else pd.DataFrame()
-        max_offdiag = (
-            float(corr.where(~np.eye(len(corr), dtype=bool)).max().max()) if not corr.empty else 0.0
-        )
+        max_offdiag = float(corr.where(~np.eye(len(corr), dtype=bool)).max().max()) if not corr.empty else 0.0
+
         high_collinearity = max_offdiag >= EDASummary.HIGH_CORR_THRESHOLD
 
         class_imbalance = False
-        y_stats = None
+        y_stats: dict[str, float] | None = None
         if y is not None:
             y_dist = y.value_counts(normalize=True)
             y_stats = y_dist.to_dict()
@@ -45,7 +45,7 @@ class EDASummary:
         needs_scaling = True
         high_dimensional = n < EDASummary.HIGH_DIM_N_RATIO * p
 
-        summary = {
+        summary: dict[str, Any] = {
             "shape": {"n_samples": n, "n_features": p},
             "na_top10": na_counts.head(10).to_dict(),
             "duplicates": dup_count,
@@ -53,9 +53,8 @@ class EDASummary:
             "max_abs_corr_offdiag": max_offdiag,
             "y_distribution": y_stats,
         }
-        path = os.path.join(
-            out_dir, f"{EDASummary.FILE_PREFIX}{EDASummary._ts()}{EDASummary.FILE_EXT}"
-        )
+
+        path = os.path.join(out_dir, f"{EDASummary.FILE_PREFIX}{EDASummary._ts()}{EDASummary.FILE_EXT}")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2, ensure_ascii=False)
 
@@ -65,4 +64,5 @@ class EDASummary:
             "class_imbalance": class_imbalance,
             "high_collinearity": high_collinearity,
         }
+
         return path, summary, flags

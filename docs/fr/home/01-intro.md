@@ -113,8 +113,3 @@ Lecture: bon équilibre précision/rappel; meilleure détection des tirs ratés 
 - Intégrer cumul et contexte (fenêtres mobiles) est essentiel pour la dimension temporelle.  
 - Pistes d’amélioration: feature engineering/selection, tuning RF, comparaison XGBoost/LogReg/SVM, analyse d’importances pour comprendre les facteurs de réussite.
 
-# NBA — Modèles Entraînements et résultats
-
-![Matrice de confusion RF1](images/01-confusion-matrix-rf1.png "Matrice de confusion LNR")
-![Features Selection](/app/static/docs/fr/home/images/02-features.png "Features Selection")
-![Courbe loss](images/06-loss.png "Courbe loss")

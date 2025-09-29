@@ -1,138 +1,99 @@
 # src/orchestrators/message.py
-
 from __future__ import annotations
 
 import gettext
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-# =========================
-# Core (faible couplage)
-# =========================
+from src.orchestrators.bootstrap import bootstrap_instance
+
+DEFAULT_LOCALES_DIR = "i18n/locales"
+DEFAULT_DOMAIN = "message"
+DEFAULT_LANG = "fr"
+VALIDATION_KEY = "NAV_HOME"  # Clé qui doit exister dans les .mo de déploiement
 
 class MessageOrchestrator:
     """
-    Noyau i18n minimal basé sur gettext:
-    - Paramétré par localedir / domain / default_lang
-    - Expose get(key, params) et load(lang)
-    - Fournit translate(domain, key, **params) en secours pour compatibilité
+    Noyau i18n minimal, autonome, basé sur gettext.
+    - Paramétrage: localedir / domain / default_lang.
+    - API: set_lang(lang), get(msgid, **params), translate(domain,msgid,**params).
     """
 
     def __init__(
         self,
-        localedir: str | Path = "i18n/locales",
-        domain: str = "streamlit_app",
-        default_lang: str = "fr",
+        localedir: str | Path = DEFAULT_LOCALES_DIR,
+        domain: str = DEFAULT_DOMAIN,
+        default_lang: str = DEFAULT_LANG,
     ) -> None:
         self.localedir = str(localedir)
         self.domain = domain
-        self.lang = default_lang
-        self._translator: Callable[[str], str] = lambda s: s
-        self._fallback: Callable[[str], str] = lambda s: s
-        self._load_fallback()
+        self.default_lang = default_lang
+        self._translations: dict[str, gettext.GNUTranslations] = {}
+        self._cur_lang = default_lang
+        self._ensure_lang(default_lang)
 
-    def _load_fallback(self) -> None:
-        """Charge l’anglais comme secours s’il existe, sinon identité."""
-        try:
-            t = gettext.translation(self.domain, localedir=self.localedir, languages=["en"])
-            self._fallback = t.gettext
-        except Exception:
-            self._fallback = lambda s: s
+    @classmethod
+    def bootstrap(
+        cls,
+        *,
+        context_provider,
+        ini_filenames: tuple[str, ...] = ("message.ini", "default.ini"),
+    ) -> "MessageOrchestrator":
+        defaults = {"localedir": DEFAULT_LOCALES_DIR, "domain": DEFAULT_DOMAIN, "default_lang": DEFAULT_LANG}
 
-    def load(self, lang: str) -> None:
-        """Charge/active la langue courante pour le domaine par défaut."""
-        self.lang = lang
+        def factory(params: dict[str, Any]) -> "MessageOrchestrator":
+            return cls(**params)
+
+        def validator(inst: "MessageOrchestrator") -> None:
+            # Vérifie que la clé de validation se traduit (ou retombe au msgid) sans lever
+            _ = inst.get(VALIDATION_KEY)
+
+        return bootstrap_instance(
+            name="message",
+            factory=factory,
+            defaults=defaults,
+            validator=validator,
+            context_provider=context_provider,
+            ini_filenames=ini_filenames,
+        )
+
+    def _ensure_lang(self, lang: str) -> None:
+        if lang in self._translations:
+            return
         try:
-            t = gettext.translation(self.domain, localedir=self.localedir, languages=[self.lang])
-            self._translator = t.gettext
+            trans = gettext.translation(self.domain, localedir=self.localedir, languages=[lang])
         except Exception:
-            self._translator = self._fallback
+            trans = gettext.NullTranslations()
+        self._translations[lang] = trans
+        if self._cur_lang != lang:
+            self._cur_lang = lang
 
     def set_lang(self, lang: str) -> None:
-        self.load(lang)
+        self._ensure_lang(lang)
+        self._cur_lang = lang
 
-    def get(self, key: str, params: dict[str, Any] | None = None) -> str:
-        """Traduit key dans le domaine courant, puis applique format(**params) si fourni."""
-        template = self._translator(key)
-        if params:
-            try:
-                return template.format(**params)
-            except Exception:
-                return template
-        return template
-
-    # Compatibilité: traduction sur domaine arbitraire
-    def translate(self, domain: str, key: str, **params: Any) -> str:
-        """Traduit une clé dans un domaine donné, avec fallback si absent."""
+    def get(self, msgid: str, **params: Any) -> str:
+        tr = self._translations.get(self._cur_lang) or gettext.NullTranslations()
         try:
-            if domain == self.domain:
-                template = self._translator(key)
-            else:
-                t = gettext.translation(domain, localedir=self.localedir, languages=[self.lang])
-                template = t.gettext(key)
+            text = tr.gettext(msgid)
+            return text.format(**params) if params else text
         except Exception:
-            template = self._fallback(key)
-        if params:
-            try:
-                return template.format(**params)
-            except Exception:
-                return template
-        return template
+            return msgid
 
-
-# =========================
-# Wrapper “app-level”
-# =========================
+    def translate(self, domain: str, msgid: str, **params: Any) -> str:
+        # Version minimale: un seul domain actif; si besoins multi-domaines, charger dynamiquement ici
+        return self.get(msgid, **params)
 
 class MessageOrchestratorApp:
     """
-    Orchestrateur i18n applicatif:
-    - Signature homogène avec les autres orchestrateurs (config_manager, logger_manager)
-    - Délègue la traduction au core (MessageOrchestrator)
-    - Expose get(...), translate(...), emit(...) pour la journalisation structurée
+    Wrapper applicatif: délègue au core et prépare l’API emit(domain, code, **payload).
     """
 
-    def __init__(
-        self,
-        config_manager: Any,
-        logger_manager: Optional[Any] = None,
-        localedir: Optional[str | Path] = None,
-        domain: Optional[str] = None,
-        default_lang: Optional[str] = None,
-    ) -> None:
-        cfg = getattr(config_manager, "model", getattr(config_manager, "cfg", None))
-        # Paramètres par défaut sûrs; possibilité de lire orchestrators.message.* depuis cfg si existant
-        loc_dir = str(localedir or "i18n/locales")
-        dom = domain or "streamlit_app"
-        lang = default_lang or "fr"
-        self.core = MessageOrchestrator(localedir=loc_dir, domain=dom, default_lang=lang)
-        self.lm = logger_manager  # Optionnel; utilisé par emit(...)
+    def __init__(self, core: MessageOrchestrator, domain_resolver: Callable[[str], str] | None = None) -> None:
+        self.core = core
+        self._domain_resolver = domain_resolver or (lambda d: d)
 
-    def set_lang(self, lang: str) -> None:
-        self.core.set_lang(lang)
-
-    def get(self, key: str, params: dict[str, Any] | None = None) -> str:
-        return self.core.get(key, params)
-
-    def translate(self, domain: str, key: str, **params: Any) -> str:
-        return self.core.translate(domain, key, **params)
-
-    def emit(self, domain: str, key: str, level: str = "info", **fields: Any) -> None:
-        """
-        Formate un message traduit et l’émet au logger si disponible.
-        - level: "debug" | "info" | "warning" | "error" | "critical"
-        - fields: champs structurés additionnels
-        """
-        msg = self.translate(domain, key, **fields)
-        try:
-            # LoggerManager compatible: si une méthode log(...) existe, on l’utilise
-            if self.lm and hasattr(self.lm, "log"):
-                self.lm.log(level=level, event=msg, **fields)
-            # Sinon, tenter un logger standard si présent
-            elif self.lm and hasattr(self.lm, "get_logger"):
-                logger = self.lm.get_logger("mlp.i18n")
-                getattr(logger, level, logger.info)(msg, extra=fields)  # type: ignore[attr-defined]
-        except Exception:
-            # Sécurité: ne jamais casser l’exécution si la journalisation échoue
-            pass
+    def emit(self, domain: str, code: str, **payload: Any) -> None:
+        _ = self.core.translate(self._domain_resolver(domain), code, **payload)
+        return

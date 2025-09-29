@@ -28,7 +28,7 @@ from src.orchestrators.config import ConfigOrchestrator  # délégation config/c
 from src.orchestrators.data import DataOrchestrator
 from src.orchestrators.eda import EDAOrchestrator
 from src.orchestrators.file import FileOrchestrator
-from src.orchestrators.message import MessageOrchestratorApp
+from src.orchestrators.message import MessageOrchestrator, MessageOrchestratorApp
 from src.orchestrators.pipeline import PipelineOrchestrator
 from src.orchestrators.report import ReportOrchestrator
 
@@ -55,7 +55,7 @@ def _example_data() -> tuple[pd.DataFrame, pd.Series]:
 
 
 class GeneralOrchestrator(LoggerMixin):
-    """Coordinate the full workflow with consistent logging and message."""
+    """Coordinate the full workflow: file → data → EDA → pipeline → report with structured, localized telemetry."""
 
     def __init__(
         self,
@@ -72,12 +72,14 @@ class GeneralOrchestrator(LoggerMixin):
         self._init_logger(cast(Any, self.lm))
         self.LOGGER_NAME = LOGGER_NAME
 
-        # Message (app-level)
-        self.msg_orch = message_orchestrator or MessageOrchestratorApp(
-            self.config_manager, logger_manager=self.lm
-        )
+        # Message (app-level): core + wrapper
+        if message_orchestrator is not None:
+            self.msg_orch = message_orchestrator
+        else:
+            core = MessageOrchestrator.bootstrap(context_provider=lambda _name: {})
+            self.msg_orch = MessageOrchestratorApp(core)
 
-        # Context: prefer injected; else, delegate to ConfigOrchestrator
+        # Contexte: injecté ou délégué à ConfigOrchestrator
         if ctx is None:
             cfg_orch = ConfigOrchestrator(self.config_manager, logger_manager=cast(Any, self.lm))
             self.cfg = cast(AppConfig, cfg_orch.get_app_config())
@@ -136,7 +138,7 @@ class GeneralOrchestrator(LoggerMixin):
                 results[KEY_DATA] = data_result
                 x, y = data_result["X"], data_result["y"]
 
-                # Write a 5-row preview under EDA dir
+                # Prévisualisation 5 lignes sous le dossier EDA
                 eda_dir = Path(self.ctx.get("eda_dir", Path(self.project_dir) / "eda"))
                 eda_dir.mkdir(parents=True, exist_ok=True)
                 preview_path = eda_dir / "data_preview_head.csv"
@@ -185,6 +187,7 @@ class GeneralOrchestrator(LoggerMixin):
         # Pipeline
         if orchestrators.pipeline.enabled and y is not None:
             try:
+                # Résolution out_dir (compatibilité existante)
                 p_out_cfg = getattr(orchestrators.pipeline, "out_dir", None)
                 if p_out_cfg:
                     p = Path(p_out_cfg)

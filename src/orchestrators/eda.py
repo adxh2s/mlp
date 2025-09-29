@@ -11,9 +11,11 @@ from src.datanalysis.eda_summary import EDASummary
 from src.instrumentation.logger_manager import LoggerManager
 from src.instrumentation.logger_mixin import LoggerMixin
 from src.instrumentation.message_taxonomy import EDA_DONE, EDA_START
-from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
+from src.orchestrators.bootstrap import bootstrap_instance
+from src.orchestrators.message import MessageOrchestratorApp
 
 EDA_DIR = "eda"
+
 KEY_PROFILE_PATH = "profile_path"
 KEY_SUMMARY_PATH = "summary_path"
 KEY_SUMMARY_DATA = "summary_data"
@@ -22,6 +24,11 @@ KEY_FLAGS = "flags"
 LOGGER_NAME = "mlp.orchestrators.eda"
 DOMAIN = "eda"
 
+DEFAULTS: dict[str, Any] = {
+    "enabled": True,
+    "profile": {"minimal": False, "title": "EDA Profile"},
+    "out_dir": EDA_DIR,
+}
 
 def _as_target(y: pd.Series | None) -> pd.Series | None:
     if y is None:
@@ -36,33 +43,69 @@ def _as_target(y: pd.Series | None) -> pd.Series | None:
         y2.name = "target"
     return y2
 
-
 class EDAOrchestrator(LoggerMixin):
     """Run EDA: profile and summary, and emit localized events."""
 
-    def __init__(self, cfg: EDAConfig, project_dir: str, logger_manager: LoggerManager) -> None:
-        self.cfg = cfg
+    def __init__(
+        self,
+        cfg: EDAConfig | dict[str, Any],
+        project_dir: str,
+        logger_manager: LoggerManager | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
+    ) -> None:
+        self.cfg = cfg if isinstance(cfg, dict) else cfg.model_dump()
         self.project_dir = project_dir
-        self.out_dir = os.path.join(project_dir, EDA_DIR)
+        self.out_dir = os.path.join(project_dir, str(self.cfg.get("out_dir", EDA_DIR)))
         os.makedirs(self.out_dir, exist_ok=True)
 
         self.LOGGER_NAME = LOGGER_NAME
-        self._init_logger(cast(Any, logger_manager))
-        self.log: Any = getattr(self, "log", None)
+        if logger_manager:
+            self._init_logger(cast(Any, logger_manager))
 
-        self.msg: MessageOrchestratorApp | None = None
+        self.msg = message_orchestrator
+
+    @classmethod
+    def bootstrap(
+        cls,
+        *,
+        context_provider,
+        project_dir: str,
+        logger_manager: LoggerManager | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
+        ini_filenames: tuple[str, ...] = ("eda.ini", "default.ini"),
+    ) -> "EDAOrchestrator":
+        def factory(params: dict[str, Any]) -> "EDAOrchestrator":
+            return cls(
+                params,
+                project_dir=project_dir,
+                logger_manager=logger_manager,
+                message_orchestrator=message_orchestrator,
+            )
+
+        def validator(inst: "EDAOrchestrator") -> None:
+            if not inst.cfg.get("enabled", True):
+                return
+            os.makedirs(inst.out_dir, exist_ok=True)
+
+        return bootstrap_instance(
+            name="eda",
+            factory=factory,
+            defaults=DEFAULTS,
+            validator=validator,
+            context_provider=context_provider,
+            ini_filenames=ini_filenames,
+        )
 
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def run(self, x: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:
+        if not self.cfg.get("enabled", True):
+            return {}
+
         n_rows, n_cols = x.shape
         if self.msg:
             self.msg.emit(DOMAIN, EDA_START, out_dir=self.out_dir, n_rows=n_rows, n_cols=n_cols)
-        else:
-            logger = getattr(self, "log", None)
-            if logger is not None:
-                logger.info("eda_start", extra={"extra_fields": {"out_dir": self.out_dir, "n_rows": n_rows, "n_cols": n_cols}})
 
         parts: list[pd.DataFrame | pd.Series] = [x]
         y_named = _as_target(y)
@@ -70,18 +113,13 @@ class EDAOrchestrator(LoggerMixin):
             parts.append(y_named)
         df = pd.concat(parts, axis=1)
 
-        profile_path = EDAProfile.generate_profile(df, self.out_dir, minimal=bool(self.cfg.profile.get("minimal", False)))
+        prof_min = bool(self.cfg.get("profile", {}).get("minimal", False))
+        prof_title = str(self.cfg.get("profile", {}).get("title", "EDA Profile"))
+        profile_path = EDAProfile.generate_profile(df, self.out_dir, minimal=prof_min, title=prof_title)
         summary_path, summary_data, flags = EDASummary.summarize(x, y, self.out_dir)
 
         if self.msg:
             self.msg.emit(DOMAIN, EDA_DONE, profile_path=str(profile_path), summary_path=str(summary_path), flags=flags)
-        else:
-            logger = getattr(self, "log", None)
-            if logger is not None:
-                logger.info(
-                    "eda_done",
-                    extra={"extra_fields": {"profile_path": str(profile_path), "summary_path": str(summary_path), "flags": flags}},
-                )
 
         return {
             KEY_PROFILE_PATH: str(profile_path),

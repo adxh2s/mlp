@@ -6,6 +6,6 @@ data_dir: "data"
 in_dir: "in"
 out_dir: "out"
 extensions: [".csv", ".xlsx", ".json"]
-
+preferred_filename: ""  # <-- ajouté, facultatif
 save_input_file: true
 save_input_file_compression: true

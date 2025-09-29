@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
@@ -15,29 +16,39 @@ from src.instrumentation.message_taxonomy import (
     PIPELINE_START,
 )
 from src.modeling.pipeline.evaluator import PipelineEvaluator
-from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
+from src.orchestrators.bootstrap import bootstrap_instance
+from src.orchestrators.message import MessageOrchestratorApp
 
 LOGGER_NAME = "mlp.orchestrators.pipeline"
 DOMAIN = "pipeline"
 PIPELINE_DIRNAME = "pipeline"
 KEY_RESULTS = "results"
 
+DEFAULTS: dict[str, Any] = {
+    "enabled": True,
+    "out_dir": PIPELINE_DIRNAME,
+    "active": [],
+    "cv": {},
+    "policy": {},
+    "pipeline": [],
+}
 
 class PipelineOrchestrator(LoggerMixin):
     def __init__(  # noqa: PLR0913
         self,
-        cfg: PipelineConfig,
+        cfg: PipelineConfig | dict[str, Any],
         project_dir: str,
         random_state: int,
         logger_manager: SupportsGetLogger | None = None,
         out_dir: str | None = None,
         ctx: dict[str, str] | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
     ) -> None:
-        self.cfg = cfg
+        self.cfg = cfg if isinstance(cfg, dict) else cfg.model_dump()
         self.random_state = random_state
         self.ctx = ctx or {}
 
-        cfg_out = getattr(self.cfg, "out_dir", None)
+        cfg_out = getattr(SimpleNamespace(**self.cfg), "out_dir", None)
         base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
         if out_dir:
             self.out_dir = Path(out_dir)
@@ -52,15 +63,62 @@ class PipelineOrchestrator(LoggerMixin):
         if logger_manager:
             self._init_logger(logger_manager)
 
-        self.msg: MessageOrchestratorApp | None = None
+        self.msg: MessageOrchestratorApp | None = message_orchestrator
+
+    @classmethod
+    def bootstrap(  # noqa: PLR0913
+        cls,
+        *,
+        context_provider,
+        project_dir: str,
+        random_state: int,
+        logger_manager: SupportsGetLogger | None = None,
+        message_orchestrator: MessageOrchestratorApp | None = None,
+        out_dir: str | None = None,
+        ini_filenames: tuple[str, ...] = ("pipeline.ini", "default.ini"),
+    ) -> "PipelineOrchestrator":
+        def factory(params: dict[str, Any]) -> "PipelineOrchestrator":
+            ctx = params.pop("_ctx", {})
+            return cls(
+                cfg=params,
+                project_dir=project_dir,
+                random_state=random_state,
+                logger_manager=logger_manager,
+                out_dir=out_dir,
+                ctx=ctx,
+                message_orchestrator=message_orchestrator,
+            )
+
+        def validator(inst: "PipelineOrchestrator") -> None:
+            if not inst.cfg.get("enabled", True):
+                return
+            try:
+                _ = list(inst.cfg.get("pipeline", []) or [])
+            except Exception:
+                inst.cfg["pipeline"] = []
+
+        def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
+            ctx = context_provider("pipeline") or {}
+            params = dict(ctx.get("orchestrators", {}).get("pipeline", {})) if isinstance(ctx.get("orchestrators"), dict) else {}
+            params["_ctx"] = ctx
+            return params
+
+        return bootstrap_instance(
+            name="pipeline",
+            factory=factory,
+            defaults=DEFAULTS,
+            validator=validator,
+            context_provider=wrapped_context_provider,
+            ini_filenames=ini_filenames,
+        )
 
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
     def _filter_active_specs(self) -> list[dict[str, Any]]:
-        active = set(getattr(self.cfg, "active", []) or [])
+        active = set(self.cfg.get("active", []) or [])
         specs: list[dict[str, Any]] = []
-        for spec in self.cfg.pipeline:
+        for spec in self.cfg.get("pipeline", []) or []:
             sdict = spec.model_dump() if hasattr(spec, "model_dump") else dict(spec)
             if not sdict.get("enabled", True):
                 continue
@@ -70,7 +128,7 @@ class PipelineOrchestrator(LoggerMixin):
         return specs
 
     def run(self, x: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
-        if not self.cfg.enabled:
+        if not self.cfg.get("enabled", True):
             if self.msg:
                 self.msg.emit(DOMAIN, PIPELINE_DISABLED)
             return {KEY_RESULTS: []}
@@ -81,8 +139,8 @@ class PipelineOrchestrator(LoggerMixin):
 
         results: list[dict[str, Any]] = []
 
-        cv_cfg = getattr(self.cfg, "cv", {}) or {}
-        global_policy = getattr(self.cfg, "policy", {}) or {}
+        cv_cfg = self.cfg.get("cv", {}) or {}
+        global_policy = self.cfg.get("policy", {}) or {}
 
         evaluator = PipelineEvaluator(
             out_dir=str(self.out_dir),

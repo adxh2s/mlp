@@ -6,7 +6,6 @@ import time
 import pandas as pd
 from ydata_profiling import ProfileReport
 
-
 class EDAProfile:
     FILE_PREFIX = "profile_"
     FILE_EXT = ".html"
@@ -22,8 +21,6 @@ class EDAProfile:
     ) -> str:
         os.makedirs(out_dir, exist_ok=True)
         prof = ProfileReport(df, title=title, minimal=minimal)
-        path = os.path.join(
-            out_dir, f"{EDAProfile.FILE_PREFIX}{EDAProfile._ts()}{EDAProfile.FILE_EXT}"
-        )
+        path = os.path.join(out_dir, f"{EDAProfile.FILE_PREFIX}{EDAProfile._ts()}{EDAProfile.FILE_EXT}")
         prof.to_file(path)
         return path

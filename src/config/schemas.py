@@ -58,6 +58,7 @@ class FileConfig(BaseModel):
     extensions: list[str] = Field(default_factory=lambda: [".csv", ".xlsx", ".json"])
     save_input_file: bool = True
     save_input_file_compression: bool = False
+    preferred_filename: str | None = None  # New field to specify preferred filename for input files
 
 
 class DataConfig(BaseModel):

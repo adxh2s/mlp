@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-
 from hydra.utils import get_original_cwd
 from omegaconf import DictConfig
 
@@ -9,28 +8,28 @@ from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_manager import LoggerManager
 from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
-from src.orchestrators.message import MessageOrchestratorApp  # alignement app-level
-
+from src.orchestrators.message import MessageOrchestrator, MessageOrchestratorApp  # core + wrapper
 
 class AppOrchestrator:
-    """Boot logger + config, expose logger_manager, config_manager and ctx."""
+    """Boot logger + config, and expose logger_manager, config_manager, ctx, message_orchestrator."""
 
     def __init__(self, hydra_cfg: DictConfig) -> None:
         # 1) Config manager
         self.config_manager = ConfigManager(hydra_cfg)
 
-        # 2) Logger bootstrap first
-        self.logger_orchestrator = LoggerOrchestrator(hydra_cfg)
+        # 2) Logger orchestrator (instanciation + run)
+        self.logger_orchestrator = LoggerOrchestrator()
         self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
 
         # 3) Config orchestrator
         self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
         app_cfg = self.config_orchestrator.get_app_config()
 
-        # 4) Message (shared) for downstream orchestrators
-        self.message_orchestrator = MessageOrchestratorApp(self.config_manager, logger_manager=self.logger_manager)
+        # 4) Message orchestrator (API actuelle: core + wrapper)
+        core = MessageOrchestrator.bootstrap(context_provider=lambda _name: {})
+        self.message_orchestrator = MessageOrchestratorApp(core)
 
-        # 5) Build ctx (Hydra-safe absolute paths)
+        # 5) Contexte de projet
         root = Path(get_original_cwd())
         outputs_root = (root / app_cfg.project.output_dir).resolve()
         project_dir = (outputs_root / app_cfg.project.name).resolve()
