@@ -21,7 +21,8 @@ def main(cfg: DictConfig) -> None:
     lm = app.logger_manager
     msg = app.message_orchestrator
 
-    lm.get_logger("__main__")
+    # Entrée de démarrage (en plus de logger_ready)
+    lm.get_logger("__main__").info("app_start", entry="main", log_file=getattr(lm, "cfg", None).file_path if getattr(lm, "cfg", None) else None)
 
     # 2) Dump de contrôle de la config Hydra résolue (switches + params clés)
     #    Utile pour vérifier que les enabled et target_column/out_dir sont bien pris.

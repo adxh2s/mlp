@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import streamlit as st
-# Configuration de la page (unique)
+
+# -------------------- Page config (doit être le premier appel Streamlit) --------------------
 APP_TITLE: str = "MLP App"
 APP_ICON: str = "📊"
 PAGE_LAYOUT: str = "wide"
@@ -15,131 +16,217 @@ from collections import OrderedDict
 from collections.abc import Callable, Mapping, MutableMapping
 from typing import Any, cast
 
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
+from hydra import compose, initialize_config_dir
+from hydra.core.global_hydra import GlobalHydra
+from hydra.core.hydra_config import HydraConfig
 
-# App-level orchestrators and managers
-from src.instrumentation.config_manager import ConfigManager
-from src.orchestrators.app import AppOrchestrator  # App bootstrap (Config/Logger/Message/ctx)
-from src.orchestrators.file import FileOrchestrator
-from src.orchestrators.data import DataOrchestrator
-from src.orchestrators.eda import EDAOrchestrator
-from src.orchestrators.pipeline import PipelineOrchestrator
-from src.orchestrators.report import ReportOrchestrator
+# Orchestrateur d'application (logger + config + message)
+from src.orchestrators.app import AppOrchestrator
 
-# Streamlit pages (must expose a `run()` function)
-from streamlit_pages import home, eda, pipeline, report, notebook, demo
+# -------------------- Pages (doivent exposer run()) --------------------
+from streamlit_pages import demo, eda, home, notebook, pipeline, report, logs  # noqa: E402
 
-"""
-Streamlit front-end orchestrator.
-
-Overview
---------
-- Bootstraps the application via AppOrchestrator (ConfigManager, LoggerManager,
-  MessageOrchestratorApp, and Hydra-safe context).
-- On startup (Home page), preloads a dataset by running FileOrchestrator →
-  DataOrchestrator if enabled in configuration.
-- For each page (Home, EDA, Pipeline, Report, Notebook, Demo), triggers the
-  corresponding orchestrator only when needed and caches results in session_state.
-- Preserves Markdown docs rendering with image URL rewrites and CSS to constrain width.
-
-Notes
------
-- set_page_config must be called exactly once.
-- The code relies on the shared ctx created by ConfigOrchestrator and exposed via AppOrchestrator.
-- Orchestrator "enabled" flags in config govern whether each step runs.
-
-"""
-
-# =========================
-# UI constants (page setup)
-# =========================
-APP_TITLE: str = "MLP App"
-APP_ICON: str = "📊"
-PAGE_LAYOUT: str = "wide"
-st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=PAGE_LAYOUT)  # one call only
-
-
-# ================
-# Session key names
-# ================
-SS_APP_BOOTSTRAPPED = "app_bootstrapped"
-SS_CTX = "ctx"
-SS_LOGGER_MANAGER = "logger_manager"
-SS_MESSAGE_ORCH = "message_orchestrator"
-SS_CONFIG_MANAGER = "config_manager"
-SS_APP_CONFIG = "app_config"
-
-SS_FILE_RESULT = "file_result"
-SS_DATA_RESULT = "data_result"
-SS_EDA_RESULT = "eda_result"
-SS_PIPELINE_RESULT = "pipeline_result"
-SS_REPORT_RESULT = "report_result"
-
-SS_LANG = "lang"
-SS_DOCS_DIR = "docs_dir"
-SS_RENDER_DOCS = "render_docs"
-
-# Optional help text
+# -------------------- Help UI --------------------
 HELP_TEXT = """
-Entrée principale Streamlit: bootstrap AppOrchestrator, préchargement File→Data, orchestration par page.
-- Contexte partagé: ctx, logger, message, config (en session_state).
-- Respect des flags 'enabled' des orchestrateurs.
-- Rendu docs Markdown avec réécriture d’images et CSS.
+Entrée principale Streamlit: i18n via gettext, navigation multipages, config via AppOrchestrator.
+- set_page_config appelé une seule fois.
+- i18n centralisée (AppOrchestrator → Message) → st.session_state['tr'].
+- Compatibilité Docker: conf/config.yaml et i18n/locales montés, avec fallback contrôlé.
 """
 
+# -------------------- Clés session_state & env --------------------
+SS_OUTPUTS_DIR: str = "outputs_dir"
+SS_PROJECT_NAME: str = "project_name"
+SS_NOTEBOOK_DIR: str = "notebooks_dir"
+SS_NOTEBOOK_URL: str = "notebooks_url"
+SS_LANG: str = "lang"
+SS_DOCS_DIR: str = "docs_dir"
 
-# ===================
-# Environment var keys
-# ===================
+ENV_OUTPUTS_DIR: str = "MLP_OUTPUTS_DIR"
+ENV_PROJECT_NAME: str = "MLP_PROJECT_NAME"
+ENV_NOTEBOOK_DIR: str = "MLP_NOTEBOOKS_DIR"
+ENV_NOTEBOOK_URL: str = "MLP_NOTEBOOKS_URL"
 ENV_LANG: str = "MLP_LANG"
 ENV_DOCS_DIR: str = "MLP_DOCS_DIR"
 
-# i18n defaults for docs
 DEFAULT_I18N_DOMAIN: str = "streamlit_app"
 DEFAULT_LOCALES_DIR: str = "i18n/locales"
 
+# -------------------- Construction AppOrchestrator (Hydra + fallback) --------------------
+def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None, str | None]:
+    """
+    1) Essaye: initialize_config_dir + compose + HydraConfig.set_config + AppOrchestrator dans le même bloc.
+    2) Fallback: OmegaConf.load si config.yaml direct est autosuffisant.
+    3) Fallback: config minimale incluant orchestrators.
+    """
+    last_err: str | None = None
 
-def _init_ui_defaults() -> None:
-    """Initialize minimal UI defaults (language, docs dir) in session_state."""
-    ss = cast(MutableMapping[str, Any], st.session_state)
-    if SS_LANG not in ss:
-        ss[SS_LANG] = os.getenv(ENV_LANG, "fr")
-    if SS_DOCS_DIR not in ss:
-        ss[SS_DOCS_DIR] = os.getenv(ENV_DOCS_DIR, "docs")
+    # 1) Composition Hydra + init orchestrateur dans le même contexte
+    for conf_dir in ("conf", "/app/conf"):
+        cfg_path = Path(conf_dir) / "config.yaml"
+        if cfg_path.is_file():
+            try:
+                # Clear pour éviter "Hydra is already initialized" à chaque rerun Streamlit
+                GlobalHydra.instance().clear()
+                with initialize_config_dir(version_base=None, config_dir=str(Path(conf_dir).resolve())):
+                    # Inclure le noeud hydra et initialiser explicitement HydraConfig pour get_original_cwd()
+                    cfg = compose(config_name="config", return_hydra_config=True)
+                    HydraConfig.instance().set_config(cfg)
+                    # Optionnel: retirer le noeud hydra de la config applicative
+                    with open_dict(cfg):
+                        if "hydra" in cfg:
+                            del cfg["hydra"]
+                    app = AppOrchestrator(cfg)
+                    return app, cast(DictConfig, cfg), None
+            except Exception as e:
+                last_err = f"{e}"
 
+    # 2) Fallback: simple lecture (si pas de defaults Hydra)
+    for candidate in ("conf/config.yaml", "/app/conf/config.yaml"):
+        try:
+            p = Path(candidate)
+            if p.is_file():
+                cfg2 = cast(DictConfig, OmegaConf.load(str(p)))
+                app2 = AppOrchestrator(cfg2)
+                return app2, cfg2, None
+        except Exception as e:
+            last_err = f"{e}"
 
-# ===========================
-# Markdown image CSS + rewrite
-# ===========================
+    # 3) Fallback minimal compatible AppOrchestrator (inclut orchestrators)
+    try:
+        cfg3 = cast(
+            DictConfig,
+            OmegaConf.create(
+                {
+                    "project": {
+                        "name": os.getenv(ENV_PROJECT_NAME, "demo_project"),
+                        "output_dir": os.getenv(ENV_OUTPUTS_DIR, "outputs"),
+                        "random_state": 42,
+                    },
+                    "logger": {
+                        "backend": "stdlib",
+                        "app_name": os.getenv(ENV_PROJECT_NAME, "mlp"),
+                        "level": "INFO",
+                        "json_mode": False,
+                    },
+                    "orchestrators": {
+                        "config": {"enabled": True},
+                        "message": {
+                            "enabled": True,
+                            "locale": os.getenv(ENV_LANG, "fr"),
+                            "locales_dir": DEFAULT_LOCALES_DIR,
+                            "domains": [
+                                "general",
+                                "config",
+                                "file",
+                                "data",
+                                "eda",
+                                "pipeline",
+                                "report",
+                                "streamlit_app",
+                            ],
+                        },
+                        "file": {"enabled": True, "data_dir": "data", "in_dir": "in", "out_dir": "out"},
+                        "data": {"enabled": True},
+                        "eda": {"enabled": True},
+                        "pipeline": {"enabled": True},
+                        "report": {"enabled": True, "formats": ["html", "md"]},
+                    },
+                    "i18n": {
+                        "locales_dir": DEFAULT_LOCALES_DIR,
+                        "domain": DEFAULT_I18N_DOMAIN,
+                        "locale": os.getenv(ENV_LANG, "fr"),
+                    },
+                }
+            ),
+        )
+        app3 = AppOrchestrator(cfg3)
+        return app3, cfg3, None
+    except Exception as e:
+        last_err = f"{e}"
+
+    return None, None, last_err or "Unknown error"
+
+# -------------------- Defaults UI (session) --------------------
+def _init_defaults(ctx: dict[str, str] | None, cfg: DictConfig) -> None:
+    ss: MutableMapping[str, Any] = cast(MutableMapping[str, Any], st.session_state)
+
+    outputs_root = (ctx or {}).get("outputs_root") or os.getenv(ENV_OUTPUTS_DIR, "outputs")
+    project_name = (
+        (cfg.get("project", {}) or {}).get("name", os.getenv(ENV_PROJECT_NAME, "demo_project"))
+        if isinstance(cfg, Mapping)
+        else os.getenv(ENV_PROJECT_NAME, "demo_project")
+    )
+
+    defaults: dict[str, Any] = {
+        SS_OUTPUTS_DIR: outputs_root,
+        SS_PROJECT_NAME: project_name,
+        SS_NOTEBOOK_DIR: os.getenv(ENV_NOTEBOOK_DIR, "notebooks"),
+        SS_NOTEBOOK_URL: os.getenv(ENV_NOTEBOOK_URL, ""),
+        SS_LANG: (cfg.get("i18n", {}) or {}).get("locale", os.getenv(ENV_LANG, "fr"))
+        if isinstance(cfg, Mapping)
+        else os.getenv(ENV_LANG, "fr"),
+        SS_DOCS_DIR: os.getenv(ENV_DOCS_DIR, "docs"),
+    }
+    for k, v in defaults.items():
+        if k not in ss:
+            ss[k] = v
+
+# -------------------- i18n (depuis AppOrchestrator) --------------------
+def _install_translator(app: AppOrchestrator, cfg: DictConfig) -> Callable[[str, Any], str]:
+    domain = (cfg.get("i18n", {}) or {}).get("domain", DEFAULT_I18N_DOMAIN) if isinstance(cfg, Mapping) else DEFAULT_I18N_DOMAIN
+    mo_app = getattr(app, "message_orchestrator", None)
+
+    def tr_noop(key: str, **p: Any) -> str:
+        return key
+
+    if mo_app is None:
+        st.session_state["tr"] = tr_noop
+        return tr_noop
+
+    if hasattr(mo_app, "get") and callable(getattr(mo_app, "get")):
+        def tr_get(key: str, **p: Any) -> str:
+            return mo_app.get(key, p if p else None)  # type: ignore[attr-defined]
+        st.session_state["tr"] = tr_get
+        return tr_get
+
+    if hasattr(mo_app, "translate") and callable(getattr(mo_app, "translate")):
+        def tr_translate(key: str, **p: Any) -> str:
+            return mo_app.translate(domain, key, **p)  # type: ignore[attr-defined]
+        st.session_state["tr"] = tr_translate
+        return tr_translate
+
+    st.session_state["tr"] = tr_noop
+    return tr_noop
+
+# -------------------- Images Markdown: CSS + Réécriture --------------------
+_IMG_MD_RE = re.compile(r'!\[(?P<alt>[^\]]*)\]\((?P<src>[^)]+)\)')
+_IMG_HTML_RE = re.compile(r'<img[^>]*src=["\'](?P<src>[^"\']+)["\'][^>]*>')
+
 def _inject_md_image_css() -> None:
-    """Constrain all Markdown images to column width."""
     st.markdown(
-        "<style>.stMarkdown img{max-width:100%;height:auto;}</style>",
+        """
+        <style>
+        /* Styles additionnels si besoin */
+        .stMarkdown img { max-width: 100%; height: auto; }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
-
-IMG_MD_RE = re.compile(r'!\[(?P<alt>[^\]]*)\]\((?P<src>[^)]+)\)')
-IMG_HTML_RE = re.compile(r'<img\s+[^>]*src=["\'](?P<src>[^"\']+)["\'][^>]*>')
-
-
 def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> str:
-    """
-    Rewrite relative image URLs to app/static/docs/... for Streamlit static serving.
-
-    Examples
-    --------
-    images/xxx.png → app/static/docs/{lang}/{section}/images/xxx.png
-    ./images/xxx.png → app/static/docs/{lang}/{section}/images/xxx.png
-
-    """
     md_dir = Path(md_file).parent
-    md_dir_rel = md_dir.relative_to(docs_base)  # ex: fr/home
+    try:
+        md_dir_rel = md_dir.relative_to(docs_base)  # ex: fr/home
+    except Exception:
+        return md_text
+
     docs_url_root = os.path.basename(os.path.normpath(docs_base)) if os.path.isabs(docs_base) else docs_base
     static_base = f"app/static/{docs_url_root}/{md_dir_rel.as_posix()}/"
 
     def _rewrite_src(src: str) -> str:
-        s = src.strip().strip('\'"')
+        s = src.strip().strip("'\"")
         if s.startswith(("http://", "https://", "app/static/")):
             return src
         if s.startswith(("./images/", "images/")):
@@ -162,25 +249,15 @@ def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> 
         new = _rewrite_src(src)
         return m.group(0).replace(src, new)
 
-    md_text = IMG_MD_RE.sub(md_sub, md_text)
-    md_text = IMG_HTML_RE.sub(html_sub, md_text)
+    md_text = _IMG_MD_RE.sub(md_sub, md_text)
+    md_text = _IMG_HTML_RE.sub(html_sub, md_text)
     return md_text
 
-
+# -------------------- Rendu Markdown (docs) --------------------
 def render_docs(section: str, lang: str | None = None) -> None:
-    """
-    Render Markdown documentation for a given section and current language.
-
-    Search order
-    ------------
-    docs/{lang}/{section}/*.md
-    docs/{section}.{lang}.*.md
-    docs/{section}.*.{lang}.md
-    docs/{section}.*.md
-    docs/{section}/*.md
-    """
     base = cast(str, st.session_state.get(SS_DOCS_DIR, "docs"))
     cur_lang = (lang or cast(str, st.session_state.get(SS_LANG, os.getenv(ENV_LANG, "fr")))).lower()
+
     patterns = [
         os.path.join(base, cur_lang, section, "*.md"),
         os.path.join(base, f"{section}.{cur_lang}.*.md"),
@@ -206,285 +283,111 @@ def render_docs(section: str, lang: str | None = None) -> None:
         except Exception as e:
             st.warning(f"Impossible de lire {path}: {e}")
 
-
-# =======================
-# App bootstrap and cache
-# =======================
-def _bootstrap_app() -> None:
-    """
-    Initialize AppOrchestrator and cache context and managers in session_state.
-
-    Steps
-    -----
-    1) Load Hydra DictConfig via ConfigManager.
-    2) Build AppOrchestrator (Logger, Config, Message, ctx).
-    3) Store ctx, logger, message and app config in session_state.
-    """
-    if st.session_state.get(SS_APP_BOOTSTRAPPED, False):
-        return
-
-    # Load base config (Hydra DictConfig)
-    hydra_cfg: DictConfig = ConfigManager.load_base_config()
-    app = AppOrchestrator(hydra_cfg)
-
-    # Cache shared objects
-    st.session_state[SS_CONFIG_MANAGER] = app.config_manager
-    st.session_state[SS_LOGGER_MANAGER] = app.logger_manager
-    st.session_state[SS_MESSAGE_ORCH] = app.message_orchestrator
-    st.session_state[SS_CTX] = app.ctx
-
-    # Application config model (AppConfig)
-    app_cfg = app.config_orchestrator.get_app_config()
-    st.session_state[SS_APP_CONFIG] = app_cfg
-
-    # Expose docs renderer for pages
-    st.session_state[SS_RENDER_DOCS] = render_docs
-
-    # Minimal UI defaults
-    _init_ui_defaults()
-
-    st.session_state[SS_APP_BOOTSTRAPPED] = True
-
-
-def _preload_file_and_data() -> None:
-    """
-    On app load (Home), attempt to preload a dataset via FileOrchestrator → DataOrchestrator.
-
-    - Respects orchestrator flags 'enabled' in the app configuration.
-    - Stores results under SS_FILE_RESULT and SS_DATA_RESULT in session_state.
-    - Non-blocking: logs and continues on errors.
-    """
-    if st.session_state.get(SS_DATA_RESULT):
-        return  # already preloaded
-
-    app_cfg = cast(Any, st.session_state.get(SS_APP_CONFIG))
-    logger_manager = cast(Any, st.session_state.get(SS_LOGGER_MANAGER))
-    ctx = cast(dict[str, str], st.session_state.get(SS_CTX, {}))
-
-    try:
-        # File
-        if app_cfg and app_cfg.orchestrators.file and app_cfg.orchestrators.file.enabled:
-            file_orch = FileOrchestrator(app_cfg.orchestrators.file, logger_manager=logger_manager, ctx=ctx)
-            file_result = file_orch.process_input()
-            st.session_state[SS_FILE_RESULT] = file_result
-        else:
-            # No file orchestrator (disabled); nothing to preload
-            return
-
-        # Data
-        if app_cfg.orchestrators.data and app_cfg.orchestrators.data.enabled:
-            if file_result := st.session_state.get(SS_FILE_RESULT):
-                if file_result.get("found") and file_result.get("data") is not None:
-                    data_orch = DataOrchestrator(app_cfg.orchestrators.data, logger_manager=logger_manager)
-                    # Attach message bus if present
-                    if mo := st.session_state.get(SS_MESSAGE_ORCH):
-                        data_orch.attach_message(mo)
-                    data_result = data_orch.run(file_result["data"])
-                    st.session_state[SS_DATA_RESULT] = data_result
-    except Exception as exc:  # noqa: BLE001
-        st.warning(f"Préchargement File→Data ignoré (raison: {exc}).")
-
-
-# ===============
-# Sidebar and nav
-# ===============
-def _pages_registry() -> "OrderedDict[str, Callable[[], None]]":
-    """
-    Register Streamlit pages; each page must define a `run()` function.
-
-    Returns
-    -------
-    OrderedDict: label → callable
-    """
+# -------------------- UI: registres et sidebar --------------------
+def _pages_registry(tr: Callable[[str, Any], str]) -> "OrderedDict[str, Callable[[], None]]":
     return OrderedDict(
         [
-            ("Home", home.run),
-            ("EDA", eda.run),
-            ("Pipelines", pipeline.run),
-            ("Rapports", report.run),
-            ("Notebooks", notebook.run),
-            ("Démo", demo.run),
+            (tr("NAV_HOME") if callable(tr) else "Accueil", home.run),
+            (tr("NAV_EDA") if callable(tr) else "EDA", eda.run),
+            (tr("NAV_PIPELINE") if callable(tr) else "Pipelines", pipeline.run),
+            (tr("NAV_REPORT") if callable(tr) else "Rapports", report.run),
+            (tr("NAV_NOTEBOOK") if callable(tr) else "Notebooks", notebook.run),
+            (tr("NAV_DEMO") if callable(tr) else "Démo", demo.run),
+            (tr("NAV_LOGS") if callable(tr) else "Logs", logs.run),
         ]
     )
 
-
-def _sidebar(pages: "OrderedDict[str, Callable[[], None]]") -> str:
-    """
-    Render the sidebar with project info, controls, and page selector.
-
-    Returns
-    -------
-    str: selected page label
-    """
-    app_cfg = cast(Any, st.session_state.get(SS_APP_CONFIG))
+def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[], None]]") -> str:
     with st.sidebar:
-        st.header(APP_TITLE)
-        page_label = st.selectbox(label="Page", options=list(pages.keys()), index=0)
+        st.header(tr("APP_TITLE") if callable(tr) else APP_TITLE)
 
-        # Optional quick controls
+        page_label = st.selectbox(
+            label=tr("LBL_PAGE") if callable(tr) else "Page",
+            options=list(pages.keys()),
+            index=0,
+        )
+
+        st.text_input(
+            label=tr("LBL_PROJECT") if callable(tr) else "Projet",
+            value=cast(str, st.session_state.get(SS_PROJECT_NAME, "")),
+            key=SS_PROJECT_NAME,
+        )
+
+        st.text_input(
+            label=tr("LBL_OUTPUTS_DIR") if callable(tr) else "Outputs dir",
+            value=cast(str, st.session_state.get(SS_OUTPUTS_DIR, "")),
+            key=SS_OUTPUTS_DIR,
+        )
+
+        st.text_input(
+            label=tr("LBL_DOCS_DIR") if callable(tr) else "Docs dir",
+            value=cast(str, st.session_state.get(SS_DOCS_DIR, "")),
+            key=SS_DOCS_DIR,
+        )
+
+        st.text_input(
+            label=tr("LBL_NOTEBOOKS_DIR") if callable(tr) else "Notebooks dir",
+            value=cast(str, st.session_state.get(SS_NOTEBOOK_DIR, "")),
+            key=SS_NOTEBOOK_DIR,
+        )
+
+        st.text_input(
+            label=tr("LBL_NOTEBOOKS_URL") if callable(tr) else "Notebooks URL",
+            value=cast(str, st.session_state.get(SS_NOTEBOOK_URL, "")),
+            key=SS_NOTEBOOK_URL,
+        )
+
+        st.text_input(
+            label=tr("LBL_LANG") if callable(tr) else "Langue",
+            value=cast(str, st.session_state.get(SS_LANG, "")),
+            key=SS_LANG,
+        )
+
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Vider le cache"):
+            if st.button(tr("BTN_CLEAR_CACHE") if callable(tr) else "Vider le cache"):
                 st.cache_data.clear()
                 st.cache_resource.clear()
-                for k in (SS_FILE_RESULT, SS_DATA_RESULT, SS_EDA_RESULT, SS_PIPELINE_RESULT, SS_REPORT_RESULT):
-                    st.session_state.pop(k, None)
-                st.success("Cache vidé.")
+                st.success(tr("MSG_CACHE_CLEARED") if callable(tr) else "Cache vidé.")
         with col2:
-            if st.button("Aide"):
+            if st.button(tr("BTN_HELP") if callable(tr) else "Aide"):
                 st.info(HELP_TEXT)
-
-        # Small status
-        if app_cfg:
-            st.caption(
-                f"Projet: {app_cfg.project.name} | Orchestrateurs: "
-                f"file={'on' if app_cfg.orchestrators.file.enabled else 'off'}, "
-                f"data={'on' if app_cfg.orchestrators.data.enabled else 'off'}, "
-                f"eda={'on' if app_cfg.orchestrators.eda.enabled else 'off'}, "
-                f"pipeline={'on' if app_cfg.orchestrators.pipeline.enabled else 'off'}, "
-                f"report={'on' if app_cfg.orchestrators.report.enabled else 'off'}"
-            )
 
         return page_label
 
-
-# =======================
-# Per-page orchestration
-# =======================
-def _ensure_eda() -> None:
-    """Run EDAOrchestrator once per session if enabled and if data is available."""
-    if st.session_state.get(SS_EDA_RESULT):
-        return
-    app_cfg = cast(Any, st.session_state.get(SS_APP_CONFIG))
-    logger_manager = cast(Any, st.session_state.get(SS_LOGGER_MANAGER))
-    data = cast(dict[str, Any], st.session_state.get(SS_DATA_RESULT, {}))
-    if not app_cfg or not app_cfg.orchestrators.eda.enabled or not data:
-        return
-    X, y = data.get("X"), data.get("y")
-    if X is None:
-        return
-    try:
-        eda_orch = EDAOrchestrator(app_cfg.orchestrators.eda, project_dir=st.session_state[SS_CTX]["project_dir"], logger_manager=logger_manager)
-        if mo := st.session_state.get(SS_MESSAGE_ORCH):
-            eda_orch.attach_message(mo)
-        st.session_state[SS_EDA_RESULT] = eda_orch.run(X, y)
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"EDA échouée: {exc}")
-
-
-def _ensure_pipeline() -> None:
-    """Run PipelineOrchestrator once per session if enabled and if target is available."""
-    if st.session_state.get(SS_PIPELINE_RESULT):
-        return
-    app_cfg = cast(Any, st.session_state.get(SS_APP_CONFIG))
-    logger_manager = cast(Any, st.session_state.get(SS_LOGGER_MANAGER))
-    ctx = cast(dict[str, str], st.session_state.get(SS_CTX, {}))
-    data = cast(dict[str, Any], st.session_state.get(SS_DATA_RESULT, {}))
-    if not app_cfg or not app_cfg.orchestrators.pipeline.enabled or not data:
-        return
-    X, y = data.get("X"), data.get("y")
-    if X is None or y is None:
-        return
-    try:
-        # Resolve pipeline out_dir similar to GeneralOrchestrator logic
-        p_out_cfg = getattr(app_cfg.orchestrators.pipeline, "out_dir", None)
-        if p_out_cfg:
-            p = Path(p_out_cfg)
-            if p.is_absolute():
-                out_dir = str(p)
-            elif p.parts and p.parts[0] == "outputs":
-                root_dir = Path(st.session_state[SS_CTX]["project_dir"]).parent.parent
-                out_dir = str(root_dir / p_out_cfg)
-            else:
-                out_dir = str(Path(st.session_state[SS_CTX]["project_dir"]) / p_out_cfg)
-        else:
-            out_dir = str(Path(st.session_state[SS_CTX]["project_dir"]) / "pipeline_cv")
-
-        pipes = PipelineOrchestrator(
-            app_cfg.orchestrators.pipeline,
-            project_dir=st.session_state[SS_CTX]["project_dir"],
-            random_state=app_cfg.project.random_state,
-            logger_manager=logger_manager,
-            out_dir=out_dir,
-            ctx=ctx,
-        )
-        if mo := st.session_state.get(SS_MESSAGE_ORCH):
-            pipes.attach_message(mo)
-        st.session_state[SS_PIPELINE_RESULT] = pipes.run(X, y)
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Pipeline échouée: {exc}")
-
-
-def _ensure_report() -> None:
-    """Run ReportOrchestrator once per session if enabled and when EDA or Pipeline results exist."""
-    if st.session_state.get(SS_REPORT_RESULT):
-        return
-    app_cfg = cast(Any, st.session_state.get(SS_APP_CONFIG))
-    logger_manager = cast(Any, st.session_state.get(SS_LOGGER_MANAGER))
-    ctx = cast(dict[str, str], st.session_state.get(SS_CTX, {}))
-    if not app_cfg or not app_cfg.orchestrators.report.enabled:
-        return
-    try:
-        rep = ReportOrchestrator(
-            app_cfg.orchestrators.report,
-            st.session_state[SS_CTX]["project_dir"],
-            app_cfg,
-            logger_manager=logger_manager,
-            ctx=ctx,
-        )
-        if mo := st.session_state.get(SS_MESSAGE_ORCH):
-            rep.attach_message(mo)
-        eda_payload = cast(dict[str, Any], st.session_state.get(SS_EDA_RESULT, {}))
-        pipeline_payload = cast(dict[str, Any], st.session_state.get(SS_PIPELINE_RESULT, {"results": []}))
-        st.session_state[SS_REPORT_RESULT] = rep.run(eda_payload, pipeline_payload)
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Rapport échoué: {exc}")
-
-
-# =========
-# Main flow
-# =========
+# -------------------- Entrée principale --------------------
 def main() -> None:
-    """
-    Streamlit entrypoint: bootstrap app, preload data, and route to selected page.
+    # 1) Construire AppOrchestrator (Hydra-first + fallback)
+    app, cfg, err = _build_app_orchestrator()
+    if app is None or cfg is None:
+        st.error(f"AppOrchestrator init failed: {err}")
+        return
 
-    Flow
-    ----
-    - Bootstrap shared context once (AppOrchestrator).
-    - Preload dataset via File→Data if enabled (Home).
-    - Depending on selected page, ensure orchestrations (EDA, Pipeline, Report).
-    - Delegate visual rendering to page modules, which consume session_state.
-    """
-    _bootstrap_app()
-    pages = _pages_registry()
-    page_label = _sidebar(pages)
+    # 2) Installer le traducteur Streamlit à partir de l’orchestrateur Message
+    tr = _install_translator(app, cfg)
 
-    # Page title
-    st.title(APP_TITLE)
+    # 3) Contextes/chemins depuis AppOrchestrator pour préremplir l’UI
+    ctx = getattr(app, "ctx", {}) if hasattr(app, "ctx") else {}
+    _init_defaults(ctx, cfg)
 
-    # Preload only once at app start (Home first render)
-    if page_label == "Home":
-        _preload_file_and_data()
+    # 4) Exposer certaines ressources aux pages (optionnel)
+    st.session_state["render_docs"] = render_docs
+    st.session_state["logger_manager"] = getattr(app, "logger_manager", None)
+    st.session_state["app_ctx"] = ctx
+    st.session_state["app_cfg"] = cfg
 
-    # Trigger per-page orchestrations (compute → then render)
-    if page_label == "EDA":
-        _ensure_eda()
-    elif page_label == "Pipelines":
-        _ensure_pipeline()
-    elif page_label == "Rapports":
-        # Report can rely on EDA and Pipeline if available
-        _ensure_eda()
-        _ensure_pipeline()
-        _ensure_report()
+    # 5) Navigation
+    pages = _pages_registry(tr)
+    page_label = _sidebar(tr, pages)
 
-    # Render selected page
+    st.title(tr("APP_TITLE") if callable(tr) else APP_TITLE)
+
     runner = pages.get(page_label)
     if runner is None:
         st.error(f"Page inconnue: {page_label}")
         return
-    # Pages read from session_state (ctx, data_result, eda_result, etc.)
-    runner()
 
+    runner()
 
 if __name__ == "__main__":
     main()

@@ -83,8 +83,8 @@ Classification Report :
    macro avg       0.63      0.63      0.62      7459
 weighted avg       0.63      0.63      0.62      7459
 
-![Matrice de confusion RF1](images/01-confusion-matrix-rf1.png "Matrice de confusion LNR")
-![Features Selection](/app/static/docs/fr/home/images/02-features.png "Features Selection")
+![Matrice de confusion RF1](images/01-confusion-matrix-rf-gscv.png "Matrice de confusion LNR")
+![Features Selection](/app/static/docs/fr/home/images/02-features-importances-rf-gscv.png "Features Selection")
 
 - XGBoost avec GridSearchCV
 
@@ -102,12 +102,12 @@ Classification Report (Test):
    macro avg       0.66      0.65      0.65      7459
 weighted avg       0.66      0.65      0.65      7459
 
-![Matrice de confusion RF2](images/01-confusion-matrix-rf2.png "Matrice de confusion LNR")
-![Features Selection](/app/static/docs/fr/home/images/03-features.png "Features Selection")
+![Matrice de confusion RF2](images/03-confusion-matrix-xgb-gscv.png "Matrice de confusion LNR")
+![Features Selection](/app/static/docs/fr/home/images/04-features-importances-xgb-gscv.png "Features Selection")
 
 - Comparatif Features Importances
 
-![Features Selection](/app/static/docs/fr/home/images/07-features.png "Features Selection")
+![Features Selection](/app/static/docs/fr/home/images/07-features-importances-compare-rf-xgb.png "Features Selection")
 
 Deep Learning
 | AUC                | accuracy           | loss               | val_AUC            | val_accuracy       | val_loss           | learning_rate         |
@@ -146,7 +146,7 @@ precision    recall  f1-score   support
 weighted avg       0.63      0.62      0.61      7459
 
 AUC ROC: 0.655518639317191
-![Matrice de confusion RF2](images/01-confusion-matrix-rf4.png "Matrice de confusion LNR")
+![Matrice de confusion RF2](images/05-confusion-matrix-dl.png "Matrice de confusion LNR")
 ![Courbe loss](images/06-loss.png "Courbe loss")
 
 ## Conclusion 

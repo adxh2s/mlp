@@ -1,6 +1,7 @@
 defaults:
   - orchestrators/config@orchestrators.config: config
   - orchestrators/message@orchestrators.message: message
+  - orchestrators/logger@orchestrators.logger: logger
   - orchestrators/file@orchestrators.file: file
   - orchestrators/data@orchestrators.data: data
   - orchestrators/eda@orchestrators.eda: eda
@@ -13,19 +14,6 @@ project:
   random_state: 42
   output_dir: outputs
   allow_example_fallback: false
-
-logger:
-  backend: structlog        # "stdlib" ou "structlog"
-  app_name: mlp
-  level: INFO               # DEBUG/INFO/WARNING/ERROR/CRITICAL
-  json_mode: true          # true en prod pour JSON
-  file_path: logs/mlp.json   # ex: logs/mlp.log ou .json
-  file_max_bytes: 5242880
-  file_backup_count: 3
-  uvicorn_noise_filter: true
-  default_fields:
-    app: mlp
-    env: dev
 
 mlflow:
   enabled: true

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+
 from hydra.utils import get_original_cwd
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from src.instrumentation.config_manager import ConfigManager
 from src.instrumentation.logger_manager import LoggerManager
@@ -10,58 +12,91 @@ from src.orchestrators.config import ConfigOrchestrator
 from src.orchestrators.logger import LoggerOrchestrator
 from src.orchestrators.message import MessageOrchestrator, MessageOrchestratorApp  # core + wrapper
 
+
 class AppOrchestrator:
-    """Boot logger + config, and expose logger_manager, config_manager, ctx, message_orchestrator."""
+    """
+    Initialise l'application dans l'ordre:
+    1) ConfigOrchestrator (Hydra + contexte + arborescences),
+    2) MessageOrchestrator (i18n),
+    3) LoggerOrchestrator (fichier+format structuré),
+    puis journalise des dumps de contrôle (App/Config/Message/Logger).
+    """
 
     def __init__(self, hydra_cfg: DictConfig) -> None:
-        # 1) Config manager
+        # 1) Config manager (accès à Hydra et paramètres globaux)
         self.config_manager = ConfigManager(hydra_cfg)
 
-        # 2) Logger orchestrator (instanciation + run)
-        self.logger_orchestrator = LoggerOrchestrator()
-        self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
-
-        # 3) Config orchestrator
-        self.config_orchestrator = ConfigOrchestrator(self.config_manager, logger_manager=self.logger_manager)
+        # 2) ConfigOrchestrator (bootstrap + run + validate)
+        self.config_orchestrator = ConfigOrchestrator.bootstrap(self.config_manager)
         app_cfg = self.config_orchestrator.get_app_config()
+        self.ctx: dict[str, str] = self.config_orchestrator.get_context()
 
-        # 4) Message orchestrator (API actuelle: core + wrapper)
+        # 3) MessageOrchestrator via bootstrap (i18n disponible tôt)
         core = MessageOrchestrator.bootstrap(context_provider=lambda _name: {})
         self.message_orchestrator = MessageOrchestratorApp(core)
 
-        # 5) Contexte de projet
-        root = Path(get_original_cwd())
-        outputs_root = (root / app_cfg.project.output_dir).resolve()
-        project_dir = (outputs_root / app_cfg.project.name).resolve()
+        # 4) LoggerOrchestrator via bootstrap, puis configuration effective
+        self.logger_orchestrator = LoggerOrchestrator.bootstrap(context_provider=lambda _name: {})
+        self.logger_orchestrator.attach_message_app(self.message_orchestrator)
+        self.logger_manager: LoggerManager = self.logger_orchestrator.run(self.config_manager)
 
-        file_cfg = getattr(app_cfg.orchestrators, "file", None)
-        if file_cfg is None:
-            self.message_orchestrator.emit(
-                "config",
-                "config_section_missing",
-                section="orchestrators.file",
-                used_defaults={"data_dir": "data", "in_dir": "in", "out_dir": "out"},
-            )
-            data_dir, in_dir, out_dir = "data", "in", "out"
-        else:
-            data_dir, in_dir, out_dir = file_cfg.data_dir, file_cfg.in_dir, file_cfg.out_dir
+        # 5) Journalisation de contrôle (résumé de config + contexte)
+        log = self.logger_manager.get_logger("app.boot")
 
-        data_root = (root / data_dir).resolve()
-        data_in = (data_root / in_dir).resolve()
-        data_out = (data_root / out_dir).resolve()
-        eda_dir = (project_dir / "eda").resolve()
-        report_dir = (project_dir / "report").resolve()
+        # App résumé
+        try:
+            root = Path(get_original_cwd())
+        except Exception:
+            root = Path(self.config_manager.project_root).resolve()
 
-        for d in (outputs_root, project_dir, data_in, data_out, eda_dir, report_dir):
-            d.mkdir(parents=True, exist_ok=True)
+        log.info(
+            "app_boot",
+            project_name=getattr(app_cfg.project, "name", None),
+            output_dir=getattr(app_cfg.project, "output_dir", None),
+            root=str(root),
+        )
 
-        self.ctx: dict[str, str] = {
-            "root_dir": str(root),
-            "outputs_root": str(outputs_root),
-            "project_dir": str(project_dir),
-            "data_root": str(data_root),
-            "data_in": str(data_in),
-            "data_out": str(data_out),
-            "eda_dir": str(eda_dir),
-            "report_dir": str(report_dir),
-        }
+        # Dump orchestrators.enabled (résumé compact Hydra)
+        resolved = OmegaConf.to_container(hydra_cfg, resolve=True) if hydra_cfg is not None else {}
+        orch = (resolved.get("orchestrators") or {}) if isinstance(resolved, dict) else {}
+        log.info(
+            "orchestrators_resolved",
+            file_enabled=(orch.get("file") or {}).get("enabled"),
+            data_enabled=(orch.get("data") or {}).get("enabled"),
+            eda_enabled=(orch.get("eda") or {}).get("enabled"),
+            pipeline_enabled=(orch.get("pipeline") or {}).get("enabled"),
+            report_enabled=(orch.get("report") or {}).get("enabled"),
+        )
+
+        # Contexte chemins clés
+        log.info(
+            "context_paths",
+            project_dir=self.ctx.get("project_dir"),
+            outputs_root=self.ctx.get("outputs_root"),
+            data_in=self.ctx.get("data_in"),
+            data_out=self.ctx.get("data_out"),
+            eda_dir=self.ctx.get("eda_dir"),
+            report_dir=self.ctx.get("report_dir"),
+        )
+
+        # État i18n minimal
+        log.info(
+            "i18n_ready",
+            locales_dir=getattr(core, "localedir", None),
+            default_lang=getattr(core, "default_lang", None),
+        )
+
+        # Logger effectif
+        lm_cfg = getattr(self.logger_manager, "cfg", None)
+        log.info(
+            "logger_config",
+            backend=getattr(lm_cfg, "backend", None),
+            level=getattr(lm_cfg, "level", None),
+            json_mode=getattr(lm_cfg, "json_mode", None),
+            file_path=getattr(lm_cfg, "file_path", None),
+            app_name=getattr(lm_cfg, "app_name", None),
+        )
+
+    @property
+    def logger(self):
+        return self.logger_manager.get_logger("app")

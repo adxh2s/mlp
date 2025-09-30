@@ -1,0 +1,14 @@
+package: orchestrators.logger
+
+enabled: true
+backend: structlog        # "stdlib" ou "structlog"
+app_name: mlp
+level: DEBUG               # DEBUG/INFO/WARNING/ERROR/CRITICAL
+json_mode: true          # true en prod pour JSON
+file_path: logs/mlp.log   # ex: logs/mlp.log ou .json
+file_max_bytes: 5242880
+file_backup_count: 3
+uvicorn_noise_filter: true
+default_fields:
+  app: mlp
+  env: dev

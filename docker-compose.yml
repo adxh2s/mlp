@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     build:
@@ -7,11 +5,12 @@ services:
       args:
         UID: ${UID:-1001}
         GID: ${GID:-1001}
-        USER: ${USER:-adhx2s}
+        USER: ${USER:-adxh2s}
     container_name: mlp_app
     user: "${UID:-1001}:${GID:-1001}"
     environment:
-      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adxh2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - HOME=/home/${USER:-adxh2s}
       - MLP_OUTPUTS_DIR=/app/outputs
       - MLP_PROJECT_NAME=nba_project
       - MLP_NOTEBOOKS_DIR=/app/notebooks
@@ -19,7 +18,7 @@ services:
       - MLP_LANG=fr
       - MLP_DOCS_DIR=/app/docs
       - STREAMLIT_SERVER_ENABLE_STATIC_SERVING=true
-      - MLP_LOG_FILE=/logs/streamlit_app.log
+      - MLP_LOG_FILE=/logs/streamlit/mlp.json
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
@@ -27,7 +26,10 @@ services:
       - ./docs:/app/docs:ro
       - ./docs:/app/static/docs:ro
       - ./logs:/logs:rw
-      - .:/app:rw
+      # Nouveau: montages nécessaires pour AppOrchestrator + i18n
+      - ./conf:/app/conf:ro
+      - ./src:/app/src:ro
+      - ./i18n:/app/i18n:ro
     ports:
       - "8501:8501"
     command:
@@ -46,18 +48,21 @@ services:
       args:
         UID: ${UID:-1001}
         GID: ${GID:-1001}
-        USER: ${USER:-adhx2s}
+        USER: ${USER:-adxh2s}
     container_name: mlp_notebooks
     user: "${UID:-1001}:${GID:-1001}"
     working_dir: /app
     environment:
-      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adxh2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
       - ./data:/app/data:ro
       - ./docs:/app/docs:ro
-      - .:/app:rw
+      # Nouveaux montages (pour réutiliser conf/src/i18n en notebooks si besoin)
+      - ./conf:/app/conf:ro
+      - ./src:/app/src:ro
+      - ./i18n:/app/i18n:ro
     ports:
       - "8888:8888"
     command:
@@ -78,18 +83,21 @@ services:
       args:
         UID: ${UID:-1001}
         GID: ${GID:-1001}
-        USER: ${USER:-adhx2s}
+        USER: ${USER:-adxh2s}
     container_name: mlp_voila
     user: "${UID:-1001}:${GID:-1001}"
     working_dir: /app
     environment:
-      - PATH=/opt/venv/bin:/home/${USER:-adhx2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/opt/venv/bin:/home/${USER:-adxh2s}/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - outputs:/app/outputs
       - notebooks:/app/notebooks
       - ./data:/app/data:ro
       - ./docs:/app/docs:ro
-      - .:/app:rw
+      # Nouveaux montages pour cohérence
+      - ./conf:/app/conf:ro
+      - ./src:/app/src:ro
+      - ./i18n:/app/i18n:ro
     ports:
       - "8866:8866"
     command:

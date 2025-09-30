@@ -2,7 +2,7 @@
 package: orchestrators.pipeline
 enabled: true
 out_dir: "outputs/mlp/pipeline_cv"
-active: ["dl_dense_auto"]
+active: ["svc_random", "rf_grid", "lin_svc", "lazy_cls"]
 
 cv:
   type: grid
@@ -127,7 +127,7 @@ pipeline:
       export_path: "outputs/mlp/automl/tpot_best_pipeline.py"
 
 - name: lazy_cls
-  enabled: false
+  enabled: true
   automl:
     library: lazypredict
     name: "lazy_default"
