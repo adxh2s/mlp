@@ -2,7 +2,7 @@
 package: orchestrators.pipeline
 enabled: true
 out_dir: "outputs/mlp/pipeline_cv"
-active: ["svc_random", "rf_grid", "lin_svc", "lazy_cls"]
+active: ["rf_grid"]
 
 cv:
   type: grid

@@ -1,38 +1,154 @@
-{% extends "base.html.jinja" %}
-{% block body %}
-<h1>{{ project_name }} — Rapport</h1>
+{# =============================================================================
+# report.html.jinja
+# -----------------------------------------------------------------------------
+# Rapport HTML consolidé: EDA + Pipelines
+# - Affiche projet, résumé EDA, artefacts (profile/summary)
+# - Liste des pipelines: best_score, best_params, liens artefacts
+# - Tente d'afficher un aperçu "leaderboard" si CSV fourni
+# ============================================================================= #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ project_name | default("MLP Report") }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; margin: 2rem; line-height: 1.45; color: #222; }
+    h1, h2, h3 { margin-top: 1.4rem; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f6f8fa; }
+    .muted { color: #666; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; background: #eef2ff; color: #1f2937; border-radius: 999px; font-size: 0.85rem; }
+    .kv { background: #f8fafc; border: 1px dashed #e5e7eb; padding: 0.75rem; }
+    .kv dt { font-weight: 600; }
+    .kv dd { margin: 0 0 0.35rem 0; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ project_name | default("MLP Report") }}</h1>
+    {% if report_id %}<p class="muted">Report ID: <span class="pill">{{ report_id }}</span></p>{% endif %}
+  </header>
 
-<h2>EDA</h2>
-<ul>
-  <li>Shape: {{ eda.summary.shape }}</li>
-  <li>Duplicats: {{ eda.summary.duplicates }}</li>
-  <li>Max |corr| off-diagonal: {{ "%.3f"|format(eda.summary.max_abs_corr_offdiag) }}</li>
-  <li>Needs scaling: {{ eda.flags.needs_scaling }}</li>
-  <li>High dimensional (n<<p): {{ eda.flags.high_dimensional }}</li>
-  <li>Class imbalance: {{ eda.flags.class_imbalance }}</li>
-  <li>High collinearity: {{ eda.flags.high_collinearity }}</li>
-  <li>Profil: {{ eda.profile_path }}</li>
-</ul>
+  <section id="eda">
+    <h2>EDA</h2>
+    <div class="kv">
+      <dl>
+        <dt>Profile</dt>
+        <dd>
+          {% if eda.profile_path %}
+            <a href="{{ eda.profile_path }}" target="_blank" rel="noopener">Profile HTML</a>
+          {% else %}
+            <span class="muted">N/A</span>
+          {% endif %}
+        </dd>
+        <dt>Summary (HTML)</dt>
+        <dd>
+          {% if eda.summary_path %}
+            <a href="{{ eda.summary_path }}" target="_blank" rel="noopener">Summary HTML</a>
+          {% else %}
+            <span class="muted">N/A</span>
+          {% endif %}
+        </dd>
+      </dl>
+      {% if eda.summary_data %}
+        <h3>Summary data</h3>
+        <pre>{{ eda.summary_data | tojson(indent=2) }}</pre>
+      {% endif %}
+      {% if eda.flags %}
+        <h3>Flags</h3>
+        <pre>{{ eda.flags | tojson(indent=2) }}</pre>
+      {% endif %}
+    </div>
+  </section>
 
-<h2>Pipelines</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Nom</th>
-      <th>Score</th>
-      <th>Params</th>
-      <th>Temps (s)</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for r in results %}
-    <tr>
-      <td>{{ r.name }}</td>
-      <td>{{ r.best_score if r.best_score is not none else "" }}</td>
-      <td><code>{{ r.best_params if r.best_params is not none else "" }}</code></td>
-      <td>{{ r.elapsed_sec if r.elapsed_sec is not none else "" }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endblock %}
+  <section id="pipelines">
+    <h2>Pipelines</h2>
+    {% if pipeline.results and pipeline.results|length > 0 %}
+      {% for res in pipeline.results %}
+        <article style="margin-bottom: 2rem;">
+          <h3>{{ res.name | default("pipeline") }}</h3>
+          <div class="kv">
+            <dl>
+              <dt>Best score</dt>
+              <dd>{{ res.best_score if res.best_score is not none else "N/A" }}</dd>
+
+              <dt>Best params</dt>
+              <dd>
+                {% if res.best_params %}
+                  <pre>{{ res.best_params | tojson(indent=2) }}</pre>
+                {% else %}
+                  <span class="muted">N/A</span>
+                {% endif %}
+              </dd>
+
+              <dt>Scoring</dt>
+              <dd>{{ res.scoring | default("N/A") }}</dd>
+
+              <dt>CV strategy</dt>
+              <dd>{{ res.cv_summary | default("N/A") }}</dd>
+
+              <dt>Artifacts</dt>
+              <dd>
+                <ul>
+                  {% if res.cv_results_path %}
+                    <li>CV results (CSV): <a href="{{ res.cv_results_path }}" target="_blank" rel="noopener">{{ res.cv_results_path }}</a></li>
+                  {% endif %}
+                  {% if res.leaderboard_path %}
+                    <li>Leaderboard (CSV): <a href="{{ res.leaderboard_path }}" target="_blank" rel="noopener">{{ res.leaderboard_path }}</a></li>
+                  {% endif %}
+                  {% if res.metrics_path %}
+                    <li>Metrics (CSV/JSON): <a href="{{ res.metrics_path }}" target="_blank" rel="noopener">{{ res.metrics_path }}</a></li>
+                  {% endif %}
+                  {% if res.model_path %}
+                    <li>Serialized model: <a href="{{ res.model_path }}" target="_blank" rel="noopener">{{ res.model_path }}</a></li>
+                  {% endif %}
+                </ul>
+              </dd>
+            </dl>
+          </div>
+
+          {% if res.leaderboard and res.leaderboard|length > 0 %}
+            <h4>Leaderboard (top results)</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Score</th>
+                  <th>Params</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in res.leaderboard %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ row.score if row.score is not none else "N/A" }}</td>
+                    <td><code>{{ row.params | tojson }}</code></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No pipeline results were provided.</p>
+    {% endif %}
+  </section>
+
+  {% if artifacts %}
+    <section id="artifacts">
+      <h2>Artifacts</h2>
+      <ul>
+        {% for key, path in artifacts.items() %}
+          <li><strong>{{ key }}</strong>: <a href="{{ path }}" target="_blank" rel="noopener">{{ path }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+</body>
+</html>

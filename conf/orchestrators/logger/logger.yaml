@@ -12,3 +12,23 @@ uvicorn_noise_filter: true
 default_fields:
   app: mlp
   env: dev
+handlers:
+- name: console
+  type: console
+  level: INFO
+  formatter: struct_json     # JSONRenderer pour console
+- name: file_main
+  type: rotating_file
+  level: INFO
+  filename: logs/mlp.log
+  maxBytes: 5242880
+  backupCount: 3
+  formatter: struct_kv       # ConsoleRenderer (sans couleurs) pour .log
+- name: file_json
+  type: rotating_file
+  level: DEBUG
+  filename: logs/mlp.json
+  maxBytes: 5242880
+  backupCount: 3
+  formatter: struct_json
+root_handlers: [console, file_main]  # ordre et sélection des handlers actifs
