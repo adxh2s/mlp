@@ -5,7 +5,7 @@ from __future__ import annotations
 
 # Décorateurs: import robuste avec fallback no-op
 try:
-    from decorators import log_call
+    from src.instrumentation.decorators import log_call
 except Exception:  # pragma: no cover
     from typing import Callable, TypeVar, ParamSpec
 

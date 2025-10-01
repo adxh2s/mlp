@@ -31,4 +31,4 @@ handlers:
   maxBytes: 5242880
   backupCount: 3
   formatter: struct_json
-root_handlers: [console, file_main]  # ordre et sélection des handlers actifs
+root_handlers: [console, file_main, file_json]  # ordre et sélection des handlers actifs

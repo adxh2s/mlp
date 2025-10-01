@@ -14,7 +14,7 @@ All public methods are decorated with @log_call for begin/end/duration traces.
 
 # Décorateurs: import robuste avec fallback no-op
 try:
-    from decorators import log_call
+    from src.instrumentation.decorators import log_call
 except Exception:  # pragma: no cover
     from typing import Callable, TypeVar, ParamSpec
 

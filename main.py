@@ -7,7 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 
 # Décorateurs: import robuste avec fallback no-op (préserve l'exécution CLI/CI)
 try:
-    from decorators import log_call
+    from src.instrumentation.decorators import log_call
 except Exception:  # pragma: no cover
     from typing import Callable, TypeVar, ParamSpec
 
