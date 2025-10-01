@@ -3,6 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 from hydra.utils import get_original_cwd
 from omegaconf import DictConfig, OmegaConf
 
@@ -22,6 +36,7 @@ class AppOrchestrator:
     puis journalise des dumps de contrôle (App/Config/Message/Logger).
     """
 
+    @log_call("app.__init__")
     def __init__(self, hydra_cfg: DictConfig) -> None:
         # 1) Config manager (accès à Hydra et paramètres globaux)
         self.config_manager = ConfigManager(hydra_cfg)
@@ -48,7 +63,6 @@ class AppOrchestrator:
             root = Path(get_original_cwd())
         except Exception:
             root = Path(self.config_manager.project_root).resolve()
-
         log.info(
             "app_boot",
             project_name=getattr(app_cfg.project, "name", None),

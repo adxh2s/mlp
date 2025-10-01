@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+"""SamplersFactory: imbalanced-learn resamplers with structured telemetry."""
+
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:  # type: ignore[override]
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 from typing import Any
 
 # Imports optionnels (évite la redéfinition de constantes en majuscules)
@@ -14,18 +30,22 @@ except Exception:  # pragma: no cover
 
 
 class SamplersFactory:
+    """Factory for building resamplers (SMOTE/Over/Under) from specs."""
+
     TYPE_SMOTE = "smote"
     TYPE_UNDER = "under"
     TYPE_OVER = "over"
+
     PASSTHROUGH = "passthrough"
 
     @staticmethod
+    @log_call("samplers.make_sampler")
     def make_sampler(cfg: dict[str, Any] | None):
         """
         Build a resampler from a spec (imbalanced-learn):
         - {"type": "smote", "params": {...}}
-        - {"type": "over", "params": {...}}   # RandomOverSampler
-        - {"type": "under", "params": {...}}  # RandomUnderSampler
+        - {"type": "over", "params": {...}} # RandomOverSampler
+        - {"type": "under", "params": {...}} # RandomUnderSampler
         Returns "passthrough" when no resampling is requested.
         """
         if not cfg:
@@ -52,6 +72,7 @@ class SamplersFactory:
         return SamplersFactory.PASSTHROUGH
 
     @staticmethod
+    @log_call("samplers.from_spec")
     def from_spec(cfg: dict[str, Any] | None):
         """Alias for API symmetry."""
         return SamplersFactory.make_sampler(cfg)

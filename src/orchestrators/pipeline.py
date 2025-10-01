@@ -4,6 +4,20 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 import pandas as pd
 
 from src.config.schemas import PipelineConfig
@@ -22,6 +36,7 @@ from src.orchestrators.message import MessageOrchestratorApp
 LOGGER_NAME = "mlp.orchestrators.pipeline"
 DOMAIN = "pipeline"
 PIPELINE_DIRNAME = "pipeline"
+
 KEY_RESULTS = "results"
 
 DEFAULTS: dict[str, Any] = {
@@ -33,7 +48,9 @@ DEFAULTS: dict[str, Any] = {
     "pipeline": [],
 }
 
+
 class PipelineOrchestrator(LoggerMixin):
+    @log_call("pipeline.__init__")
     def __init__(  # noqa: PLR0913
         self,
         cfg: PipelineConfig | dict[str, Any],
@@ -47,8 +64,8 @@ class PipelineOrchestrator(LoggerMixin):
         self.cfg = cfg if isinstance(cfg, dict) else cfg.model_dump()
         self.random_state = random_state
         self.ctx = ctx or {}
-
         cfg_out = getattr(SimpleNamespace(**self.cfg), "out_dir", None)
+
         base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
         if out_dir:
             self.out_dir = Path(out_dir)
@@ -66,6 +83,7 @@ class PipelineOrchestrator(LoggerMixin):
         self.msg: MessageOrchestratorApp | None = message_orchestrator
 
     @classmethod
+    @log_call("pipeline.bootstrap")
     def bootstrap(  # noqa: PLR0913
         cls,
         *,
@@ -99,7 +117,11 @@ class PipelineOrchestrator(LoggerMixin):
 
         def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
             ctx = context_provider("pipeline") or {}
-            params = dict(ctx.get("orchestrators", {}).get("pipeline", {})) if isinstance(ctx.get("orchestrators"), dict) else {}
+            params = (
+                dict(ctx.get("orchestrators", {}).get("pipeline", {}))
+                if isinstance(ctx.get("orchestrators"), dict)
+                else {}
+            )
             params["_ctx"] = ctx
             return params
 
@@ -112,9 +134,11 @@ class PipelineOrchestrator(LoggerMixin):
             ini_filenames=ini_filenames,
         )
 
+    @log_call("pipeline.attach_message")
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
+    @log_call("pipeline._filter_active_specs")
     def _filter_active_specs(self) -> list[dict[str, Any]]:
         active = set(self.cfg.get("active", []) or [])
         specs: list[dict[str, Any]] = []
@@ -127,6 +151,7 @@ class PipelineOrchestrator(LoggerMixin):
             specs.append(sdict)
         return specs
 
+    @log_call("pipeline.run")
     def run(self, x: pd.DataFrame, y: pd.Series) -> dict[str, Any]:
         if not self.cfg.get("enabled", True):
             if self.msg:
@@ -138,7 +163,6 @@ class PipelineOrchestrator(LoggerMixin):
             self.msg.emit(DOMAIN, PIPELINE_START, out_dir=str(self.out_dir), count=len(specs))
 
         results: list[dict[str, Any]] = []
-
         cv_cfg = self.cfg.get("cv", {}) or {}
         global_policy = self.cfg.get("policy", {}) or {}
 

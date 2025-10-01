@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+"""EDASummary: quick stats and flags exported to JSON with structured telemetry."""
+
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:  # type: ignore[override]
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 import json
 import os
 import time
@@ -8,9 +24,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+
 class EDASummary:
+    """Compute lightweight EDA signals and persist as JSON."""
+
     FILE_PREFIX = "eda_summary_"
     FILE_EXT = ".json"
+
     HIGH_CORR_THRESHOLD = 0.95
     IMBALANCE_THRESHOLD = 0.8
     HIGH_DIM_N_RATIO = 5
@@ -20,9 +40,9 @@ class EDASummary:
         return time.strftime("%Y%m%d_%H%M%S")
 
     @staticmethod
-    def summarize(
-        X: pd.DataFrame, y: pd.Series | None, out_dir: str
-    ) -> tuple[str, dict[str, Any], dict[str, bool]]:
+    @log_call("eda_summary.summarize")
+    def summarize(X: pd.DataFrame, y: pd.Series | None, out_dir: str) -> tuple[str, dict[str, Any], dict[str, bool]]:
+        """Summarize EDA signals, persist JSON file, and return (path, data, flags)."""
         os.makedirs(out_dir, exist_ok=True)
 
         n, p = X.shape
@@ -32,7 +52,6 @@ class EDASummary:
         numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
         corr = X[numeric_cols].corr().abs() if numeric_cols else pd.DataFrame()
         max_offdiag = float(corr.where(~np.eye(len(corr), dtype=bool)).max().max()) if not corr.empty else 0.0
-
         high_collinearity = max_offdiag >= EDASummary.HIGH_CORR_THRESHOLD
 
         class_imbalance = False
@@ -42,6 +61,7 @@ class EDASummary:
             y_stats = y_dist.to_dict()
             class_imbalance = y_dist.max() >= EDASummary.IMBALANCE_THRESHOLD
 
+        # Flags heuristiques simples
         needs_scaling = True
         high_dimensional = n < EDASummary.HIGH_DIM_N_RATIO * p
 

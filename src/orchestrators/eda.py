@@ -3,6 +3,20 @@ from __future__ import annotations
 import os
 from typing import Any, cast
 
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 import pandas as pd
 
 from src.config.schemas import EDAConfig
@@ -30,6 +44,7 @@ DEFAULTS: dict[str, Any] = {
     "out_dir": EDA_DIR,
 }
 
+
 def _as_target(y: pd.Series | None) -> pd.Series | None:
     if y is None:
         return None
@@ -43,9 +58,11 @@ def _as_target(y: pd.Series | None) -> pd.Series | None:
         y2.name = "target"
     return y2
 
+
 class EDAOrchestrator(LoggerMixin):
     """Run EDA: profile and summary, and emit localized events."""
 
+    @log_call("eda.__init__")
     def __init__(
         self,
         cfg: EDAConfig | dict[str, Any],
@@ -61,10 +78,10 @@ class EDAOrchestrator(LoggerMixin):
         self.LOGGER_NAME = LOGGER_NAME
         if logger_manager:
             self._init_logger(cast(Any, logger_manager))
-
         self.msg = message_orchestrator
 
     @classmethod
+    @log_call("eda.bootstrap")
     def bootstrap(
         cls,
         *,
@@ -96,9 +113,11 @@ class EDAOrchestrator(LoggerMixin):
             ini_filenames=ini_filenames,
         )
 
+    @log_call("eda.attach_message")
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
+    @log_call("eda.run")
     def run(self, x: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:
         if not self.cfg.get("enabled", True):
             return {}
@@ -116,6 +135,7 @@ class EDAOrchestrator(LoggerMixin):
         prof_min = bool(self.cfg.get("profile", {}).get("minimal", False))
         prof_title = str(self.cfg.get("profile", {}).get("title", "EDA Profile"))
         profile_path = EDAProfile.generate_profile(df, self.out_dir, minimal=prof_min, title=prof_title)
+
         summary_path, summary_data, flags = EDASummary.summarize(x, y, self.out_dir)
 
         if self.msg:

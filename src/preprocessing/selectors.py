@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+"""SelectorsFactory: feature selection builders with structured telemetry."""
+
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:  # type: ignore[override]
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 from typing import Any, Callable, cast
 
 import numpy as np
@@ -16,12 +32,16 @@ F_CLASSIF: ScoreFunc = cast(ScoreFunc, f_classif)
 
 
 class SelectorsFactory:
+    """Factory for building feature selectors from a compact spec."""
+
     KEY_VARIANCE_THRESHOLD = "variance_threshold"
     KEY_SELECT_K_BEST = "select_k_best"
     KEY_SELECT_PERCENTILE = "select_percentile"
+
     PASSTHROUGH = "passthrough"
 
     @staticmethod
+    @log_call("selectors.make_selector")
     def make_selector(cfg: dict[str, Any] | None):
         """
         Build a feature selector from a spec:
@@ -51,11 +71,13 @@ class SelectorsFactory:
         return SelectorsFactory.PASSTHROUGH
 
     @staticmethod
+    @log_call("selectors.from_spec")
     def from_spec(cfg: dict[str, Any] | None):
         """Alias kept for symmetry with other factories."""
         return SelectorsFactory.make_selector(cfg)
 
     @staticmethod
+    @log_call("selectors.instantiate_estimator")
     def instantiate_estimator(cfg: dict[str, Any] | None):
-        # Backward-compat alias
+        """Backward-compat alias."""
         return SelectorsFactory.make_selector(cfg)

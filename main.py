@@ -5,16 +5,31 @@ import sys
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
+# Décorateurs: import robuste avec fallback no-op (préserve l'exécution CLI/CI)
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 from src.instrumentation.message_taxonomy import APP_DONE, APP_START
 from src.orchestrators.app import AppOrchestrator
 from src.orchestrators.general import GeneralOrchestrator
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
+@log_call("app.main")
 def main(cfg: DictConfig) -> None:
     """
     Entry point: bootstraps logging and configuration via AppOrchestrator,
-    then delegates to GeneralOrchestrator for application flow.
+    then delegates to GeneralOrchestrator for the application flow.
     """
     # 1) Initialisation application (logging + config)
     app = AppOrchestrator(cfg)
@@ -22,15 +37,18 @@ def main(cfg: DictConfig) -> None:
     msg = app.message_orchestrator
 
     # Entrée de démarrage (en plus de logger_ready)
-    lm.get_logger("__main__").info("app_start", entry="main", log_file=getattr(lm, "cfg", None).file_path if getattr(lm, "cfg", None) else None)
+    lm.get_logger("__main__").info(
+        "app_start",
+        entry="main",
+        log_file=getattr(lm, "cfg", None).file_path if getattr(lm, "cfg", None) else None,
+    )
 
     # 2) Dump de contrôle de la config Hydra résolue (switches + params clés)
-    #    Utile pour vérifier que les enabled et target_column/out_dir sont bien pris.
+    # Utile pour vérifier que les enabled et target_column/out_dir sont bien pris.
     resolved = OmegaConf.to_container(cfg, resolve=True)
     orch = resolved.get("orchestrators") or {}
     data_cfg = orch.get("data") or {}
     pipes_cfg = orch.get("pipeline") or {}
-
     msg.emit(
         "app",
         "config_resolved",

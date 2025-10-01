@@ -2,6 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 import pandas as pd
 
 from src.config.schemas import DataConfig
@@ -45,6 +59,7 @@ DEFAULTS: dict[str, Any] = {
 class DataOrchestrator(LoggerMixin):
     """Orchestrate data preparation workflows using DataManager."""
 
+    @log_call("data.__init__")
     def __init__(
         self,
         cfg: DataConfig | dict[str, Any],
@@ -58,6 +73,7 @@ class DataOrchestrator(LoggerMixin):
             self._init_logger(logger_manager)
         else:
             import logging
+
             self.log = logging.getLogger(LOGGER_NAME)
 
         # Délégation système aux méthodes DataManager (IO + prep)
@@ -65,6 +81,7 @@ class DataOrchestrator(LoggerMixin):
         self.msg: MessageOrchestratorApp | None = message_orchestrator
 
     @classmethod
+    @log_call("data.bootstrap")
     def bootstrap(
         cls,
         *,
@@ -88,9 +105,11 @@ class DataOrchestrator(LoggerMixin):
             ini_filenames=ini_filenames,
         )
 
+    @log_call("data.attach_message")
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         self.msg = msg
 
+    @log_call("data.analyze_df")
     def analyze_df(self, df: pd.DataFrame) -> dict[str, Any]:
         """
         Analyse descriptive légère déléguant l'inférence de types au DataManager.
@@ -105,6 +124,7 @@ class DataOrchestrator(LoggerMixin):
             KEY_TARGET_FOUND: tcol is not None,
         }
 
+    @log_call("data.process_data")
     def process_data(self, raw_data: Any) -> tuple[pd.DataFrame, pd.Series | None]:
         # Télémetrie de début
         if self.msg:
@@ -143,6 +163,7 @@ class DataOrchestrator(LoggerMixin):
 
         return X, y
 
+    @log_call("data.run")
     def run(self, raw_data: Any) -> dict[str, Any]:
         try:
             if self.msg:
@@ -174,5 +195,7 @@ class DataOrchestrator(LoggerMixin):
             if self.msg:
                 self.msg.emit(DOMAIN, DATA_PROCESSING_FAILED, level="error", error=str(exc))
             else:
-                getattr(self, "log", None) and self.log.error("data_processing_failed", extra={"extra_fields": {"error": str(exc)}})
+                getattr(self, "log", None) and self.log.error(
+                    "data_processing_failed", extra={"extra_fields": {"error": str(exc)}}
+                )
             raise

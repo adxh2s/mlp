@@ -3,6 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 import pandas as pd
 
 from src.config.schemas import AppConfig
@@ -34,13 +48,13 @@ from src.orchestrators.report import ReportOrchestrator
 
 """
 General orchestrator: coordinate file→data→EDA→pipeline→report with localized, structured logging.
-
 - Builds or reuses shared LoggerManager/MessageOrchestrator and consumes a context (ctx).
 - If no ctx is provided, delegates config/ctx construction to ConfigOrchestrator.
 """
 
 LOGGER_NAME = "mlp.orchestrators.general"
 DOMAIN = "general"
+
 KEY_FILE = "file"
 KEY_DATA = "data"
 KEY_EDA = "eda"
@@ -50,6 +64,7 @@ KEY_REPORT = "report"
 
 def _example_data() -> tuple[pd.DataFrame, pd.Series]:
     from sklearn.datasets import load_breast_cancer
+
     X, y = load_breast_cancer(return_X_y=True, as_frame=True)
     return cast(pd.DataFrame, X), cast(pd.Series, y)
 
@@ -57,6 +72,7 @@ def _example_data() -> tuple[pd.DataFrame, pd.Series]:
 class GeneralOrchestrator(LoggerMixin):
     """Coordinate the full workflow: file → data → EDA → pipeline → report with structured, localized telemetry."""
 
+    @log_call("general.__init__")
     def __init__(
         self,
         config_manager: ConfigManager,
@@ -91,22 +107,27 @@ class GeneralOrchestrator(LoggerMixin):
         self.out_dir = self.ctx.get("outputs_root", ".")
         self.msg_orch.emit(DOMAIN, GENERAL_INIT, project_dir=self.project_dir)
 
+    @log_call("general._fallback_logger")
     def _fallback_logger(self):
         lm = build_logger_manager(self.cfg.logger)
         lm.configure()
         return lm
 
+    @log_call("general.load_example_data")
     def load_example_data(self) -> tuple[pd.DataFrame, pd.Series]:
         return _example_data()
 
+    @log_call("general._attach_message")
     def _attach_message(self, *children: Any) -> None:
         for ch in children:
             if hasattr(ch, "attach_message"):
                 ch.attach_message(self.msg_orch)
 
+    @log_call("general.run_from_files")
     def run_from_files(self) -> dict[str, Any]:
         results: dict[str, Any] = {}
         orchestrators = self.cfg.orchestrators
+
         self.msg_orch.emit(DOMAIN, GENERAL_START_FROM_FILES)
 
         # File
@@ -157,6 +178,7 @@ class GeneralOrchestrator(LoggerMixin):
 
         return self._run_ml_orchestrators(x, y, results)
 
+    @log_call("general.run_from_data")
     def run_from_data(self, x: pd.DataFrame, y: pd.Series | None = None) -> dict[str, Any]:
         results: dict[str, Any] = {
             KEY_DATA: {
@@ -172,7 +194,10 @@ class GeneralOrchestrator(LoggerMixin):
         self.msg_orch.emit(DOMAIN, GENERAL_START_FROM_DATA, shape=str(x.shape))
         return self._run_ml_orchestrators(x, y, results)
 
-    def _run_ml_orchestrators(self, x: pd.DataFrame, y: pd.Series | None, results: dict[str, Any]) -> dict[str, Any]:
+    @log_call("general._run_ml_orchestrators")
+    def _run_ml_orchestrators(
+        self, x: pd.DataFrame, y: pd.Series | None, results: dict[str, Any]
+    ) -> dict[str, Any]:
         orchestrators = self.cfg.orchestrators
 
         # EDA
@@ -228,6 +253,7 @@ class GeneralOrchestrator(LoggerMixin):
         self.msg_orch.emit(DOMAIN, GENERAL_DONE, report_artifacts=results.get(KEY_REPORT, {}).get("artifacts"))
         return results
 
+    @log_call("general.run")
     def run(self, x: pd.DataFrame | None = None, y: pd.Series | None = None) -> dict[str, Any]:
         file_enabled = bool(self.cfg.orchestrators.file and self.cfg.orchestrators.file.enabled)
         self.msg_orch.emit(
@@ -237,10 +263,12 @@ class GeneralOrchestrator(LoggerMixin):
             x_present=(x is not None),
             y_present=(y is not None),
         )
+
         if x is None and file_enabled:
             return self.run_from_files()
         if x is not None:
             return self.run_from_data(x, y)
+
         if not getattr(self.cfg.project, "allow_example_fallback", False):
             self.msg_orch.emit(
                 DOMAIN,
@@ -249,6 +277,7 @@ class GeneralOrchestrator(LoggerMixin):
                 reason="No input data found; example fallback disabled",
             )
             return {"error": "no_input_data", "fallback_used": False}
+
         self.msg_orch.emit(DOMAIN, USING_EXAMPLE_DATA)
         x_ex, y_ex = self.load_example_data()
         return self.run_from_data(x_ex, y_ex)

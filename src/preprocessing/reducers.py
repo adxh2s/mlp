@@ -1,17 +1,37 @@
 from __future__ import annotations
 
+"""ReducersFactory: dimensionality reduction builders with structured telemetry."""
+
+# Décorateurs: import robuste avec fallback no-op
+try:
+    from decorators import log_call
+except Exception:  # pragma: no cover
+    from typing import Callable, TypeVar, ParamSpec
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:  # type: ignore[override]
+        def deco(fn: Callable[P, T]) -> Callable[P, T]:
+            return fn
+        return deco
+
 from typing import Any
 
 from sklearn.decomposition import PCA
 
 
 class ReducersFactory:
+    """Factory for building reducers (PCA/UMAP/ParametricUMAP) from specs."""
+
     TYPE_PCA = "pca"
     TYPE_UMAP = "umap"
     TYPE_PARAM_UMAP = "parametric_umap"  # alias interne accepté ci-dessous
+
     PASSTHROUGH = "passthrough"
 
     @staticmethod
+    @log_call("reducers._get_umap")
     def _get_umap():
         """
         Import paresseux de umap-learn uniquement lorsque requis.
@@ -28,13 +48,13 @@ class ReducersFactory:
             ) from e
 
     @staticmethod
+    @log_call("reducers.make_reducer")
     def make_reducer(cfg: dict[str, Any] | None, random_state: int = 42):
         """
         Construit un réducteur dimensionnel depuis une spec:
         - {"type": "pca", "params": {...}}
         - {"type": "umap", "params": {...}}
-        - {"type": "parametric_umap", "params": {...}}  # si TensorFlow dispo
-
+        - {"type": "parametric_umap", "params": {...}} # si TensorFlow dispo
         Retourne "passthrough" si aucune réduction n'est demandée.
         """
         if not cfg:
@@ -74,11 +94,13 @@ class ReducersFactory:
         return ReducersFactory.PASSTHROUGH
 
     @staticmethod
+    @log_call("reducers.from_spec")
     def from_spec(cfg: dict[str, Any] | None, random_state: int = 42):
         """Alias rétro-compatible."""
         return ReducersFactory.make_reducer(cfg, random_state)
 
     @staticmethod
+    @log_call("reducers.instantiate_estimator")
     def instantiate_estimator(cfg: dict[str, Any] | None, random_state: int = 42):
         """Alias rétro-compatible."""
         return ReducersFactory.make_reducer(cfg, random_state)
