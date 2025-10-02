@@ -17,7 +17,7 @@ import streamlit as st
 
 from src.instrumentation.decorators import log_page
 
-SS_CTX = "ctx"
+SS_CTX = "context"
 SS_APP_CONFIG = "app_config"
 
 

@@ -4,6 +4,8 @@ import os, re
 from collections.abc import Callable
 import streamlit as st
 
+from src.instrumentation.decorators import log_page
+
 DEFAULT_LOG_FILE = os.getenv("MLP_LOG_FILE", "streamlit_app.log")
 
 def _read_tail(path: str, max_lines: int) -> list[str]:
@@ -14,6 +16,7 @@ def _read_tail(path: str, max_lines: int) -> list[str]:
     except Exception as e:
         return [f"[logs] Impossible de lire '{path}': {e}\n"]
 
+@log_page("logs")
 def run() -> None:
     tr: Callable[[str], str] = st.session_state.get("tr", lambda s, **p: s)
     st.header(tr("NAV_LOGS") if callable(tr) else "Logs")

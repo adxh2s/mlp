@@ -38,7 +38,7 @@ from src.instrumentation.message_taxonomy import (
     REPORT_ORCHESTRATOR_FAILED,
     USING_EXAMPLE_DATA,
 )
-from src.orchestrators.config import ConfigOrchestrator  # délégation config/ctx
+from src.orchestrators.config import ConfigOrchestrator  # délégation config/context
 from src.orchestrators.data import DataOrchestrator
 from src.orchestrators.eda import EDAOrchestrator
 from src.orchestrators.file import FileOrchestrator
@@ -48,8 +48,8 @@ from src.orchestrators.report import ReportOrchestrator
 
 """
 General orchestrator: coordinate file→data→EDA→pipeline→report with localized, structured logging.
-- Builds or reuses shared LoggerManager/MessageOrchestrator and consumes a context (ctx).
-- If no ctx is provided, delegates config/ctx construction to ConfigOrchestrator.
+- Builds or reuses shared LoggerManager/MessageOrchestrator and consumes a context (context).
+- If no context is provided, delegates config/context construction to ConfigOrchestrator.
 """
 
 LOGGER_NAME = "mlp.orchestrators.general"
@@ -78,14 +78,14 @@ class GeneralOrchestrator(LoggerMixin):
         config_manager: ConfigManager,
         logger_manager: Any | None = None,
         message_orchestrator: MessageOrchestratorApp | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
     ) -> None:
         self.config_manager = config_manager
         self.cfg: AppConfig = config_manager.model
 
         # Logging
-        self.lm = logger_manager or self._fallback_logger()
-        self._init_logger(cast(Any, self.lm))
+        self.logger_manager = logger_manager or self._fallback_logger()
+        self._init_logger(cast(Any, self.logger_manager))
         self.LOGGER_NAME = LOGGER_NAME
 
         # Message (app-level): core + wrapper
@@ -96,22 +96,22 @@ class GeneralOrchestrator(LoggerMixin):
             self.msg_orch = MessageOrchestratorApp(core)
 
         # Contexte: injecté ou délégué à ConfigOrchestrator
-        if ctx is None:
-            cfg_orch = ConfigOrchestrator(self.config_manager, logger_manager=cast(Any, self.lm))
+        if context is None:
+            cfg_orch = ConfigOrchestrator(self.config_manager, logger_manager=cast(Any, self.logger_manager))
             self.cfg = cast(AppConfig, cfg_orch.get_app_config())
-            self.ctx = cfg_orch.run()
+            self.context = cfg_orch.run()
         else:
-            self.ctx = ctx
+            self.context = context
 
-        self.project_dir = self.ctx.get("project_dir", ".")
-        self.out_dir = self.ctx.get("outputs_root", ".")
+        self.project_dir = self.context.get("project_dir", ".")
+        self.out_dir = self.context.get("outputs_root", ".")
         self.msg_orch.emit(DOMAIN, GENERAL_INIT, project_dir=self.project_dir)
 
     @log_call("general._fallback_logger")
     def _fallback_logger(self):
-        lm = build_logger_manager(self.cfg.logger)
-        lm.configure()
-        return lm
+        logger_manager = build_logger_manager(self.cfg.logger)
+        logger_manager.configure()
+        return logger_manager
 
     @log_call("general.load_example_data")
     def load_example_data(self) -> tuple[pd.DataFrame, pd.Series]:
@@ -134,7 +134,7 @@ class GeneralOrchestrator(LoggerMixin):
         if orchestrators.file and orchestrators.file.enabled:
             try:
                 file_orch = FileOrchestrator(
-                    orchestrators.file, logger_manager=cast(Any, self.lm), ctx=self.ctx
+                    orchestrators.file, logger_manager=cast(Any, self.logger_manager), context=self.context
                 )
                 self._attach_message(file_orch)
                 file_result = file_orch.process_input()
@@ -153,14 +153,14 @@ class GeneralOrchestrator(LoggerMixin):
         # Data
         if orchestrators.data.enabled:
             try:
-                data_orch = DataOrchestrator(orchestrators.data, logger_manager=cast(Any, self.lm))
+                data_orch = DataOrchestrator(orchestrators.data, logger_manager=cast(Any, self.logger_manager))
                 self._attach_message(data_orch)
                 data_result = data_orch.run(raw_data)
                 results[KEY_DATA] = data_result
                 x, y = data_result["X"], data_result["y"]
 
                 # Prévisualisation 5 lignes sous le dossier EDA
-                eda_dir = Path(self.ctx.get("eda_dir", Path(self.project_dir) / "eda"))
+                eda_dir = Path(self.context.get("eda_dir", Path(self.project_dir) / "eda"))
                 eda_dir.mkdir(parents=True, exist_ok=True)
                 preview_path = eda_dir / "data_preview_head.csv"
                 x.head(5).to_csv(preview_path, index=False)
@@ -203,7 +203,7 @@ class GeneralOrchestrator(LoggerMixin):
         # EDA
         if orchestrators.eda.enabled:
             try:
-                eda = EDAOrchestrator(orchestrators.eda, self.project_dir, logger_manager=cast(Any, self.lm))
+                eda = EDAOrchestrator(orchestrators.eda, self.project_dir, logger_manager=cast(Any, self.logger_manager))
                 self._attach_message(eda)
                 results[KEY_EDA] = eda.run(x, y)
             except Exception as exc:  # noqa: BLE001
@@ -230,9 +230,9 @@ class GeneralOrchestrator(LoggerMixin):
                     orchestrators.pipeline,
                     project_dir=self.project_dir,
                     random_state=self.cfg.project.random_state,
-                    logger_manager=cast(Any, self.lm),
+                    logger_manager=cast(Any, self.logger_manager),
                     out_dir=out_dir,
-                    ctx=self.ctx,
+                    context=self.context,
                 )
                 self._attach_message(pipes)
                 results[KEY_PIPELINE] = pipes.run(x, y)
@@ -243,7 +243,7 @@ class GeneralOrchestrator(LoggerMixin):
         if orchestrators.report.enabled:
             try:
                 rep = ReportOrchestrator(
-                    orchestrators.report, self.project_dir, self.cfg, logger_manager=cast(Any, self.lm), ctx=self.ctx
+                    orchestrators.report, self.project_dir, self.cfg, logger_manager=cast(Any, self.logger_manager), context=self.context
                 )
                 self._attach_message(rep)
                 results[KEY_REPORT] = rep.run(results.get(KEY_EDA, {}), results.get(KEY_PIPELINE, {"results": []}))

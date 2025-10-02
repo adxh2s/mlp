@@ -58,15 +58,15 @@ class PipelineOrchestrator(LoggerMixin):
         random_state: int,
         logger_manager: SupportsGetLogger | None = None,
         out_dir: str | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
         message_orchestrator: MessageOrchestratorApp | None = None,
     ) -> None:
         self.cfg = cfg if isinstance(cfg, dict) else cfg.model_dump()
         self.random_state = random_state
-        self.ctx = ctx or {}
+        self.context = context or {}
         cfg_out = getattr(SimpleNamespace(**self.cfg), "out_dir", None)
 
-        base_dir = Path(self.ctx["project_dir"]) if self.ctx.get("project_dir") else Path(project_dir)
+        base_dir = Path(self.context["project_dir"]) if self.context.get("project_dir") else Path(project_dir)
         if out_dir:
             self.out_dir = Path(out_dir)
         elif cfg_out:
@@ -96,14 +96,14 @@ class PipelineOrchestrator(LoggerMixin):
         ini_filenames: tuple[str, ...] = ("pipeline.ini", "default.ini"),
     ) -> "PipelineOrchestrator":
         def factory(params: dict[str, Any]) -> "PipelineOrchestrator":
-            ctx = params.pop("_ctx", {})
+            context = params.pop("_context", {})
             return cls(
                 cfg=params,
                 project_dir=project_dir,
                 random_state=random_state,
                 logger_manager=logger_manager,
                 out_dir=out_dir,
-                ctx=ctx,
+                context=context,
                 message_orchestrator=message_orchestrator,
             )
 
@@ -116,13 +116,13 @@ class PipelineOrchestrator(LoggerMixin):
                 inst.cfg["pipeline"] = []
 
         def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
-            ctx = context_provider("pipeline") or {}
+            context = context_provider("pipeline") or {}
             params = (
-                dict(ctx.get("orchestrators", {}).get("pipeline", {}))
-                if isinstance(ctx.get("orchestrators"), dict)
+                dict(context.get("orchestrators", {}).get("pipeline", {}))
+                if isinstance(context.get("orchestrators"), dict)
                 else {}
             )
-            params["_ctx"] = ctx
+            params["_context"] = context
             return params
 
         return bootstrap_instance(

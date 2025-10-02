@@ -1,20 +1,5 @@
 from __future__ import annotations
 
-"""
-Logging decorators for pages and generic call tracing with robust fallbacks.
-
-Priority for logger resolution inside wrappers:
-1) Bound instance logger: self.get_logger(name) or self.log (LoggerMixin).
-2) Streamlit session logger: st.session_state["lm"].get_logger(name), only if a Streamlit run context exists.
-3) structlog.get_logger(name) if structlog is available.
-4) logging.getLogger(name) as last resort.
-
-Also provides:
-- log_call_ex: emits call_start/call_end and call_error (with duration_ms and error) and can attach an argument summary.
-- summarize_df_y: small helper to attach X/y shapes without logging full data.
-- Optional debug trace of chosen backend when MLP_DECORATORS_DEBUG=1.
-"""
-
 import functools
 import os
 import time
@@ -29,15 +14,30 @@ except Exception:  # pragma: no cover
 
 # Guard to check Streamlit run context to avoid CLI warnings
 try:
-    from streamlit.runtime.scriptrunner import get_script_run_ctx  # type: ignore
+    from streamlit.runtime.scriptrunner import get_script_run_context  # type: ignore
 except Exception:  # pragma: no cover
-    def get_script_run_ctx():
+    def get_script_run_context():
         return None  # type: ignore
 
 try:
     import structlog  # type: ignore
 except Exception:  # pragma: no cover
     structlog = None  # type: ignore
+
+"""
+Logging decorators for pages and generic call tracing with robust fallbacks.
+
+Priority for logger resolution inside wrappers:
+1) Bound instance logger: self.get_logger(name) or self.log (LoggerMixin).
+2) Streamlit session logger: st.session_state["logger_manager"], only if a Streamlit run context exists.
+3) structlog.get_logger(name) if structlog is available.
+4) logging.getLogger(name) as last resort.
+
+Also provides:
+- log_call_ex: emits call_start/call_end and call_error (with duration_ms and error, with stacktrace) and can attach an argument summary.
+- summarize_df_y: small helper to attach X/y shapes without logging full data.
+- Optional debug trace of chosen backend when MLP_DECORATORS_DEBUG=1.
+"""
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -75,11 +75,11 @@ def _resolve_logger(args: tuple[Any, ...], label: str):
     # 2) Streamlit session logger (only when running inside Streamlit)
     if st is not None:
         try:
-            if get_script_run_ctx() is not None:
-                lm = st.session_state.get("lm")  # type: ignore[attr-defined]
-                if lm is not None:
-                    _debug("decorator_backend", selected="streamlit.session_state.lm", func=label)
-                    return lm.get_logger(label)
+            if get_script_run_context() is not None:
+                logger_manager = st.session_state.get("logger_manager")  # type: ignore[attr-defined]
+                if logger_manager is not None and hasattr(logger_manager, "get_logger"):
+                    _debug("decorator_backend", selected="streamlit.session_state.logger_manager", func=label)
+                    return logger_manager.get_logger(label)
         except Exception:  # pragma: no cover
             pass
 
@@ -97,7 +97,7 @@ def _resolve_logger(args: tuple[Any, ...], label: str):
 
 
 def log_page(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator for Streamlit page entry points with start/end and duration_ms."""
+    """Decorator for Streamlit page entry points with start/end, duration_ms, and page_error on exceptions."""
     def deco(fn: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -110,12 +110,25 @@ def log_page(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
             t0 = time.monotonic()
             try:
                 return fn(*args, **kwargs)
+            except Exception:
+                # Emit page_error with stacktrace and duration
+                dur_err = round((time.monotonic() - t0) * 1000)
+                try:
+                    # log.exception records exc_info=True with structlog or stdlib
+                    log.exception("page_error", page=name, duration_ms=dur_err)
+                except Exception:  # pragma: no cover
+                    try:
+                        log.error("page_error", page=name, duration_ms=dur_err, exc_info=True)
+                    except Exception:  # pragma: no cover
+                        pass
+                raise
             finally:
                 dur = round((time.monotonic() - t0) * 1000)
                 try:
                     log.info("page_end", page=name, duration_ms=dur)
                 except Exception:  # pragma: no cover
                     pass
+
         return wrapper
     return deco
 
@@ -124,9 +137,11 @@ def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, 
     """Decorator emitting call_start/call_end with duration_ms at INFO level."""
     def deco(fn: Callable[P, T]) -> Callable[P, T]:
         label = name or getattr(fn, "__qualname__", getattr(fn, "__name__", "call"))
+
         @functools.wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             log = _resolve_logger(args, label)
+
             # Start
             try:
                 log.info("call_start", func=label)
@@ -142,6 +157,7 @@ def log_call(name: str | None = None) -> Callable[[Callable[P, T]], Callable[P, 
                     log.info("call_end", func=label, duration_ms=dur)
                 except Exception:  # pragma: no cover
                     pass
+
         return wrapper
     return deco
 
@@ -191,14 +207,14 @@ def log_call_ex(
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Like log_call, but also emits call_error on exceptions and can attach an argument summary.
-
     - call_start: always emitted at the chosen level.
     - call_end: always emitted with duration_ms at the chosen level.
-    - call_error: emitted at error level with duration_ms and error message, then the exception is re-raised.
+    - call_error: emitted at error level with duration_ms, error message, and stacktrace, then the exception is re-raised.
     - arg_summary: optional callable receiving (args, kwargs) and returning a small dict to attach to all events.
     """
     def deco(fn: Callable[P, T]) -> Callable[P, T]:
         label = name or getattr(fn, "__qualname__", getattr(fn, "__name__", "call"))
+
         @functools.wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             log = _resolve_logger(args, label)
@@ -222,9 +238,13 @@ def log_call_ex(
             except Exception as e:
                 dur = round((time.monotonic() - t0) * 1000)
                 try:
-                    log.error("call_error", func=label, duration_ms=dur, error=str(e), **fields)
+                    # Prefer exception() to ensure exc_info=True across backends
+                    log.exception("call_error", func=label, duration_ms=dur, error=str(e), **fields)
                 except Exception:  # pragma: no cover
-                    pass
+                    try:
+                        log.error("call_error", func=label, duration_ms=dur, error=str(e), exc_info=True, **fields)
+                    except Exception:  # pragma: no cover
+                        pass
                 raise
             finally:
                 dur = round((time.monotonic() - t0) * 1000)
@@ -232,5 +252,6 @@ def log_call_ex(
                     getattr(log, level)("call_end", func=label, duration_ms=dur, **fields)
                 except Exception:  # pragma: no cover
                     pass
+
         return wrapper
     return deco

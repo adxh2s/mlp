@@ -37,7 +37,7 @@ class LoggerOrchestrator:
 
     def __init__(self, **params: Any) -> None:
         self._params = params
-        self.lm: LoggerManager | None = None
+        self.logger_manager: LoggerManager | None = None
         self._msg_app: MessageOrchestratorApp | None = None
 
     @classmethod
@@ -106,12 +106,12 @@ class LoggerOrchestrator:
         settings.file_path = self._normalize_path(config_manager, getattr(settings, "file_path", None))
 
         # 4) Build and configure manager
-        self.lm = build_logger_manager(settings)
-        self.lm.configure()
+        self.logger_manager = build_logger_manager(settings)
+        self.logger_manager.configure()
 
         # 5) First event to force file creation and validate output routing
         try:
-            self.lm.get_logger("bootstrap").info(
+            self.logger_manager.get_logger("bootstrap").info(
                 "logger_ready",
                 backend=getattr(settings, "backend", None),
                 json_mode=getattr(settings, "json_mode", None),
@@ -130,4 +130,4 @@ class LoggerOrchestrator:
                 json_mode=getattr(settings, "json_mode", None),
             )
 
-        return self.lm
+        return self.logger_manager

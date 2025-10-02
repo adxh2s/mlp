@@ -43,8 +43,8 @@ def pytest_configure(config):
     if ls.file_path:
         Path(ls.file_path).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
     # Construire et configurer
-    lm = build_logger_manager(ls)
-    lm.configure()
+    logger_manager = build_logger_manager(ls)
+    logger_manager.configure()
 
     # Log d’amorçage
 

@@ -36,21 +36,21 @@ class ConfigOrchestrator(LoggerMixin):
         self.config_manager = config_manager
         self.LOGGER_NAME = LOGGER_NAME
 
-        self.lm = logger_manager or build_logger_manager(config_manager.build_logger_settings())
-        self.lm.configure()
-        self._init_logger(cast(Any, self.lm))
+        self.logger_manager = logger_manager or build_logger_manager(config_manager.build_logger_settings())
+        self.logger_manager.configure()
+        self._init_logger(cast(Any, self.logger_manager))
 
         # i18n: core + wrapper (API actuelle)
         core = MessageOrchestrator.bootstrap(context_provider=lambda _name: {})
         self.msg = MessageOrchestratorApp(core)
 
         try:
-            self.app_cfg = self.config_manager.load()
+            self.app_config = self.config_manager.load()
         except Exception as exc:  # noqa: BLE001
             self.msg.emit(DOMAIN, CONFIG_ERROR, level="error", error=str(exc))
             raise
 
-        self.ctx: dict[str, str] = {}
+        self.context: dict[str, str] = {}
 
     def _resolve_root(self) -> Path:
         """Retourne une racine de projet stable selon le contexte (Hydra ou non)."""
@@ -64,12 +64,12 @@ class ConfigOrchestrator(LoggerMixin):
 
     def run(self) -> dict[str, str]:
         root = self._resolve_root()
-        project_name = self.app_cfg.project.name
+        project_name = self.app_config.project.name
 
-        outputs_root = (root / self.app_cfg.project.output_dir).resolve()
+        outputs_root = (root / self.app_config.project.output_dir).resolve()
         project_dir = (outputs_root / project_name).resolve()
 
-        file_cfg = self.app_cfg.orchestrators.file
+        file_cfg = self.app_config.orchestrators.file
         data_root = (root / file_cfg.data_dir).resolve()
         data_in = (data_root / file_cfg.in_dir).resolve()
         data_out = (data_root / file_cfg.out_dir).resolve()
@@ -80,7 +80,7 @@ class ConfigOrchestrator(LoggerMixin):
         for d in (project_dir, data_in, data_out, eda_dir, report_dir):
             d.mkdir(parents=True, exist_ok=True)
 
-        self.ctx = {
+        self.context = {
             "root_dir": str(root),
             "outputs_root": str(outputs_root),
             "project_dir": str(project_dir),
@@ -92,19 +92,19 @@ class ConfigOrchestrator(LoggerMixin):
         }
 
         self.msg.emit(DOMAIN, CONFIG_READY, project_name=project_name, output_dir=str(outputs_root))
-        return self.ctx
+        return self.context
 
     def validate(self) -> None:
         """Validation stricte du contexte calculé (lève en cas d’invalidité)."""
         required = ("root_dir", "outputs_root", "project_dir", "data_in", "data_out", "eda_dir", "report_dir")
-        missing = [k for k in required if not self.ctx.get(k)]
+        missing = [k for k in required if not self.context.get(k)]
         if missing:
             raise RuntimeError(f"ConfigOrchestrator invalid context, missing: {missing}")
 
         # Optionnel: existence disque
         for k in required:
-            if not Path(self.ctx[k]).exists():
-                raise RuntimeError(f"ConfigOrchestrator path does not exist for '{k}': {self.ctx[k]}")
+            if not Path(self.context[k]).exists():
+                raise RuntimeError(f"ConfigOrchestrator path does not exist for '{k}': {self.context[k]}")
 
     @classmethod
     def bootstrap(
@@ -142,13 +142,13 @@ class ConfigOrchestrator(LoggerMixin):
 
     # Getters
     def get_app_config(self) -> Any:
-        return self.app_cfg
+        return self.app_config
 
     def get_logger_manager(self) -> LoggerManager:
-        return self.lm
+        return self.logger_manager
 
     def get_config_manager(self) -> ConfigManager:
         return self.config_manager
 
     def get_context(self) -> dict[str, str]:
-        return dict(self.ctx)
+        return dict(self.context)

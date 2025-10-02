@@ -79,13 +79,13 @@ class ReportRenderer:
         """Render report in requested formats and return artifact paths."""
         os.makedirs(out_dir, exist_ok=True)
         report_id = str(uuid.uuid4())[:8]
-        ctx = self._build_context(project_name, eda_payload, pipe_payload)
+        context = self._build_context(project_name, eda_payload, pipe_payload)
 
         artifacts: list[str] = []
 
         if "html" in formats:
             template = self.env.get_template("report.html.jinja")
-            html = template.render(**ctx)
+            html = template.render(**context)
             html_path = os.path.join(out_dir, f"report_{report_id}{self.HTML_EXT}")
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html)
@@ -93,7 +93,7 @@ class ReportRenderer:
 
         if "md" in formats:
             template = self.env.get_template("report.md.jinja")
-            md = template.render(**ctx)
+            md = template.render(**context)
             md_path = os.path.join(out_dir, f"report_{report_id}{self.MD_EXT}")
             with open(md_path, "w", encoding="utf-8") as f:
                 f.write(md)

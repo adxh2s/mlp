@@ -19,9 +19,9 @@ def init_logging_from_config(cfg_mgr: ConfigManager):
         p = Path(logger_settings.file_path).expanduser().resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
 
-    lm = build_logger_manager(logger_settings)
+    logger_manager = build_logger_manager(logger_settings)
     # configure() est lazy dans vos managers; get_logger() déclenchera la config au besoin
-    logger = lm.get_logger(logger_settings.app_name)
+    logger = logger_manager.get_logger(logger_settings.app_name)
     # Log de démarrage
     logger.info(
         "Logging initialized",
@@ -33,4 +33,4 @@ def init_logging_from_config(cfg_mgr: ConfigManager):
             }
         },
     )
-    return lm, logger
+    return logger_manager, logger

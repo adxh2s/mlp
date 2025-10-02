@@ -33,14 +33,14 @@ def main(cfg: DictConfig) -> None:
     """
     # 1) Initialisation application (logging + config)
     app = AppOrchestrator(cfg)
-    lm = app.logger_manager
+    logger_manager = app.logger_manager
     msg = app.message_orchestrator
 
     # Entrée de démarrage (en plus de logger_ready)
-    lm.get_logger("__main__").info(
+    logger_manager.get_logger("__main__").info(
         "app_start",
         entry="main",
-        log_file=getattr(lm, "cfg", None).file_path if getattr(lm, "cfg", None) else None,
+        log_file=getattr(logger_manager, "cfg", None).file_path if getattr(logger_manager, "cfg", None) else None,
     )
 
     # 2) Dump de contrôle de la config Hydra résolue (switches + params clés)
@@ -60,7 +60,7 @@ def main(cfg: DictConfig) -> None:
         data_target_column=data_cfg.get("target_column"),
         data_auto_detect_target=data_cfg.get("auto_detect_target"),
         pipeline_out_dir=pipes_cfg.get("out_dir"),
-        ctx=app.ctx,
+        context=app.context,
     )
 
     # 3) Démarrage de l'application (log)
@@ -70,9 +70,9 @@ def main(cfg: DictConfig) -> None:
     try:
         go = GeneralOrchestrator(
             app.config_manager,
-            logger_manager=lm,
+            logger_manager=logger_manager,
             message_orchestrator=msg,
-            ctx=app.ctx,
+            context=app.context,
         )
         results = go.run()
         msg.emit(

@@ -43,8 +43,8 @@ class AppOrchestrator:
 
         # 2) ConfigOrchestrator (bootstrap + run + validate)
         self.config_orchestrator = ConfigOrchestrator.bootstrap(self.config_manager)
-        app_cfg = self.config_orchestrator.get_app_config()
-        self.ctx: dict[str, str] = self.config_orchestrator.get_context()
+        app_config = self.config_orchestrator.get_app_config()
+        self.context: dict[str, str] = self.config_orchestrator.get_context()
 
         # 3) MessageOrchestrator via bootstrap (i18n disponible tôt)
         core = MessageOrchestrator.bootstrap(context_provider=lambda _name: {})
@@ -65,8 +65,8 @@ class AppOrchestrator:
             root = Path(self.config_manager.project_root).resolve()
         log.info(
             "app_boot",
-            project_name=getattr(app_cfg.project, "name", None),
-            output_dir=getattr(app_cfg.project, "output_dir", None),
+            project_name=getattr(app_config.project, "name", None),
+            output_dir=getattr(app_config.project, "output_dir", None),
             root=str(root),
         )
 
@@ -85,12 +85,12 @@ class AppOrchestrator:
         # Contexte chemins clés
         log.info(
             "context_paths",
-            project_dir=self.ctx.get("project_dir"),
-            outputs_root=self.ctx.get("outputs_root"),
-            data_in=self.ctx.get("data_in"),
-            data_out=self.ctx.get("data_out"),
-            eda_dir=self.ctx.get("eda_dir"),
-            report_dir=self.ctx.get("report_dir"),
+            project_dir=self.context.get("project_dir"),
+            outputs_root=self.context.get("outputs_root"),
+            data_in=self.context.get("data_in"),
+            data_out=self.context.get("data_out"),
+            eda_dir=self.context.get("eda_dir"),
+            report_dir=self.context.get("report_dir"),
         )
 
         # État i18n minimal
@@ -101,14 +101,14 @@ class AppOrchestrator:
         )
 
         # Logger effectif
-        lm_cfg = getattr(self.logger_manager, "cfg", None)
+        logger_manager_cfg = getattr(self.logger_manager, "cfg", None)
         log.info(
             "logger_config",
-            backend=getattr(lm_cfg, "backend", None),
-            level=getattr(lm_cfg, "level", None),
-            json_mode=getattr(lm_cfg, "json_mode", None),
-            file_path=getattr(lm_cfg, "file_path", None),
-            app_name=getattr(lm_cfg, "app_name", None),
+            backend=getattr(logger_manager_cfg, "backend", None),
+            level=getattr(logger_manager_cfg, "level", None),
+            json_mode=getattr(logger_manager_cfg, "json_mode", None),
+            file_path=getattr(logger_manager_cfg, "file_path", None),
+            app_name=getattr(logger_manager_cfg, "app_name", None),
         )
 
     @property

@@ -10,7 +10,7 @@ Rôle:
 - Émettre des événements localisés (MessageOrchestratorApp) et des logs structurés.
 
 Contrat:
-- Le contexte (ctx) est fourni par ConfigOrchestrator/AppOrchestrator et doit contenir:
+- Le contexte (context) est fourni par ConfigOrchestrator/AppOrchestrator et doit contenir:
   - 'data_in': chemin absolu du dossier d'entrée.
   - 'data_out': chemin absolu du dossier de sortie.
 - Aucun fallback de chemins (Hydra/cwd) n'est réalisé ici, pour préserver la séparation des responsabilités.
@@ -179,10 +179,10 @@ class FileOrchestrator(LoggerMixin):
     Dépendances:
     - cfg: configuration de fichiers (Pydantic/FileConfig/dict).
     - logger_manager: LoggerManager optionnel pour logs structurés.
-    - ctx: contexte applicatif OBLIGATOIRE avec 'data_in' et 'data_out' (absolus).
+    - context: contexte applicatif OBLIGATOIRE avec 'data_in' et 'data_out' (absolus).
 
     Important:
-    - Aucune résolution de chemins via Hydra/cwd n’est réalisée ici; le ctx provient
+    - Aucune résolution de chemins via Hydra/cwd n’est réalisée ici; le context provient
       de ConfigOrchestrator/AppOrchestrator qui garantit des chemins valides.
     """
 
@@ -190,11 +190,11 @@ class FileOrchestrator(LoggerMixin):
         self,
         cfg: FileConfigModel | FileConfig | Mapping[str, Any],
         logger_manager: LoggerManager | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
     ) -> None:
         raw = _to_dict_cfg(cfg)
         self.cfg = FileConfig(**raw) if raw else FileConfig()
-        self.ctx = ctx or {}
+        self.context = context or {}
         self.fm = FileManager()
 
         self.LOGGER_NAME = LOGGER_NAME
@@ -206,15 +206,15 @@ class FileOrchestrator(LoggerMixin):
         self.msg: MessageOrchestratorApp | None = None
 
         # Contexte requis
-        missing = [k for k in (CTX_DATA_IN, CTX_DATA_OUT) if k not in self.ctx]
+        missing = [k for k in (CTX_DATA_IN, CTX_DATA_OUT) if k not in self.context]
         if missing:
             raise ValueError(
-                f"FileOrchestrator requires ctx with keys {missing}; "
-                "build ctx via ConfigOrchestrator.run() (or AppOrchestrator) and inject it."
+                f"FileOrchestrator requires context with keys {missing}; "
+                "build context via ConfigOrchestrator.run() (or AppOrchestrator) and inject it."
             )
 
-        self.in_dir = Path(self.ctx[CTX_DATA_IN]).resolve()
-        self.out_dir = Path(self.ctx[CTX_DATA_OUT]).resolve()
+        self.in_dir = Path(self.context[CTX_DATA_IN]).resolve()
+        self.out_dir = Path(self.context[CTX_DATA_OUT]).resolve()
 
         # in_dir requis; out_dir best-effort (tolérer RO / non créable)
         self.fm.ensure_dir(self.in_dir)
@@ -233,18 +233,18 @@ class FileOrchestrator(LoggerMixin):
     def bootstrap(
         cls,
         *,
-        context_provider,  # callable: name -> mapping (doit fournir ctx avec data_in/data_out)
+        context_provider,  # callable: name -> mapping (doit fournir context avec data_in/data_out)
         logger_manager: LoggerManager | None = None,
         message_orchestrator: MessageOrchestratorApp | None = None,
         ini_filenames: tuple[str, ...] = ("file.ini", "default.ini"),
     ) -> "FileOrchestrator":
         """
-        Bootstrap de configuration uniquement (aucun fallback de chemins); ctx reste obligatoire.
+        Bootstrap de configuration uniquement (aucun fallback de chemins); context reste obligatoire.
         - Priorité: contexte applicatif -> INI -> defaults, puis validate à l'instanciation.
         """
         def factory(params: dict[str, Any]) -> "FileOrchestrator":
-            ctx = params.pop("_ctx", {})
-            inst = cls(params, logger_manager=logger_manager, ctx=ctx)
+            context = params.pop("_context", {})
+            inst = cls(params, logger_manager=logger_manager, context=context)
             if message_orchestrator is not None:
                 inst.attach_message(message_orchestrator)
             return inst
@@ -253,9 +253,9 @@ class FileOrchestrator(LoggerMixin):
             return
 
         def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
-            ctx = context_provider("file") or {}
-            params = dict(ctx.get("orchestrators", {}).get("file", {})) if isinstance(ctx.get("orchestrators"), dict) else {}
-            params["_ctx"] = ctx
+            context = context_provider("file") or {}
+            params = dict(context.get("orchestrators", {}).get("file", {})) if isinstance(context.get("orchestrators"), dict) else {}
+            params["_context"] = context
             return params
 
         return bootstrap_instance(
@@ -272,22 +272,22 @@ class FileOrchestrator(LoggerMixin):
         cls,
         cfg_mgr: Any,
         logger_manager: LoggerManager | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
     ) -> FileOrchestrator:
         """Fabrique un FileOrchestrator à partir d’un ConfigManager-like (.model.orchestrators.file attendu)."""
         cfg = cfg_mgr.model.orchestrators.file
-        return cls(cfg, logger_manager=logger_manager, ctx=ctx)
+        return cls(cfg, logger_manager=logger_manager, context=context)
 
     @classmethod
     def from_config_manager(
         cls,
         config_manager: Any,
         logger_manager: LoggerManager | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
     ) -> FileOrchestrator:
         """Alias de from_cfg_mgr pour compatibilité d’API explicite."""
         cfg = config_manager.model.orchestrators.file
-        return cls(cfg, logger_manager=logger_manager, ctx=ctx)
+        return cls(cfg, logger_manager=logger_manager, context=context)
 
     def attach_message(self, msg: MessageOrchestratorApp) -> None:
         """Attache l’orchestrateur de messages pour émettre les événements localisés."""

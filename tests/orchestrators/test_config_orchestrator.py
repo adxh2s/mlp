@@ -57,9 +57,9 @@ def test_config_orchestrator_happy_path(tmp_path: Path, monkeypatch: pytest.Monk
     )
 
     # Spy logger manager configure to ensure it's called
-    with patch("src.instrumentation.logger_factory.build_logger_manager") as blm:
-        lm = MagicMock()
-        blm.return_value = lm
+    with patch("src.instrumentation.logger_factory.build_logger_manager") as blogger_manager:
+        logger_manager = MagicMock()
+        blogger_manager.return_value = logger_manager
 
         # Act
         orch = ConfigOrchestrator(cfg_mgr)
@@ -69,8 +69,8 @@ def test_config_orchestrator_happy_path(tmp_path: Path, monkeypatch: pytest.Monk
             raise AssertionError("Expected project name to be 'demo'")
         if orch.get_output_dir() != "outputs":
             raise AssertionError("Expected output_dir to be 'outputs'")
-        blm.assert_called_once()
-        lm.configure.assert_called_once()
+        blogger_manager.assert_called_once()
+        logger_manager.configure.assert_called_once()
 
 
 def test_config_orchestrator_emits_error_on_invalid_cfg(monkeypatch: pytest.MonkeyPatch) -> None:

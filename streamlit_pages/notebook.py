@@ -16,7 +16,7 @@ import streamlit.components.v1 as components
 
 from src.instrumentation.decorators import log_page
 
-SS_CTX = "ctx"
+SS_CTX = "context"
 
 
 def _root(notebook_dir: str) -> Path:

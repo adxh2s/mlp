@@ -54,15 +54,15 @@ class ReportOrchestrator(LoggerMixin):
         self,
         cfg: ReportConfig | dict[str, Any],
         project_dir: str,
-        app_cfg: AppConfig,
+        app_config: AppConfig,
         logger_manager: LoggerManager | None = None,
-        ctx: dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
         message_orchestrator: MessageOrchestratorApp | None = None,
     ) -> None:
         # 1) Normaliser la config en dict
         self.cfg = cfg if isinstance(cfg, dict) else cfg.model_dump()
-        self.app_cfg = app_cfg
-        self.ctx = ctx or {}
+        self.app_config = app_config
+        self.context = context or {}
         self.project_dir = project_dir
 
         # 2) Résolution out_dir (relative au project_dir par défaut)
@@ -99,13 +99,13 @@ class ReportOrchestrator(LoggerMixin):
         """Build the orchestrator via generic bootstrap (context → INI → defaults)."""
 
         def factory(params: dict[str, Any]) -> "ReportOrchestrator":
-            ctx = params.pop("_ctx", {})
+            context = params.pop("_context", {})
             return cls(
                 cfg=params,
                 project_dir=project_dir,
-                app_cfg=app_config,
+                app_config=app_config,
                 logger_manager=logger_manager,
-                ctx=ctx,
+                context=context,
                 message_orchestrator=message_orchestrator,
             )
 
@@ -115,13 +115,13 @@ class ReportOrchestrator(LoggerMixin):
             os.makedirs(inst.out_dir, exist_ok=True)
 
         def wrapped_context_provider(_name: str) -> dict[str, Any] | None:
-            ctx = context_provider("report") or {}
+            context = context_provider("report") or {}
             params = (
-                dict(ctx.get("orchestrators", {}).get("report", {}))
-                if isinstance(ctx.get("orchestrators"), dict)
+                dict(context.get("orchestrators", {}).get("report", {}))
+                if isinstance(context.get("orchestrators"), dict)
                 else {}
             )
-            params["_ctx"] = ctx
+            params["_context"] = context
             return params
 
         return bootstrap_instance(
@@ -144,7 +144,7 @@ class ReportOrchestrator(LoggerMixin):
         if not self.cfg.get("enabled", True):
             return {}
 
-        project_name = getattr(self.app_cfg.project, "name", "project")
+        project_name = getattr(self.app_config.project, "name", "project")
 
         # Évènement de début
         if self.msg:

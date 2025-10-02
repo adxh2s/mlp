@@ -16,10 +16,10 @@ class LoggerMixin:
 
     LOGGER_NAME = __name__
 
-    def _init_logger(self, lm: SupportsGetLogger) -> None:
+    def _init_logger(self, logger_manager: SupportsGetLogger) -> None:
         """Initialize self.log with a named logger from the logger manager.
 
         Args:
-            lm: Object exposing get_logger(name) (LoggerManager/StructlogLoggerManager).
+            logger_manager: Object exposing get_logger(name) (LoggerManager/StructlogLoggerManager).
         """
-        self.log = lm.get_logger(self.LOGGER_NAME)
+        self.log = logger_manager.get_logger(self.LOGGER_NAME)

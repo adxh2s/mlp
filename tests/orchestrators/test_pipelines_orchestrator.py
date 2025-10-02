@@ -102,7 +102,7 @@ def test_run_single_pipeline_grid(tmp_path):
     X, y = _make_numeric_xy()
     cfg = _cfg_like_pydantic(pipeline=[_svc_spec("svc_grid")], active=["svc_grid"])
     orch = PipelineOrchestrator(
-        cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out = orch.run(X, y)
@@ -119,7 +119,7 @@ def test_respects_active_list_and_enabled(tmp_path):
     spec_b["enabled"] = False
     cfg = _cfg_like_pydantic(pipeline=[spec_a, spec_b], active=["svc_a"])
     orch = PipelineOrchestrator(
-        cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out = orch.run(X, y)
@@ -134,7 +134,7 @@ def test_disable_column_transformer(tmp_path):
         pipeline=[_svc_spec("svc_no_ct", ct_enabled=False)], active=["svc_no_ct"]
     )
     orch = PipelineOrchestrator(
-        cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out = orch.run(X, y)
@@ -155,7 +155,7 @@ def test_random_and_halving_random(tmp_path):
         cfg=cfg_random,
         project_dir=str(tmp_path),
         random_state=0,
-        ctx={"project_dir": str(tmp_path)},
+        context={"project_dir": str(tmp_path)},
     )
     orch.attach_message(DummyMsg())
     out_rnd = orch.run(X, y)
@@ -168,7 +168,7 @@ def test_random_and_halving_random(tmp_path):
         cv={"type": "halving_random", "n_iter": 8, "factor": 2, "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
-        cfg=cfg_halv, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg_halv, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out_halv = orch.run(X, y)
@@ -206,7 +206,7 @@ def test_automl_tpot_branch(tmp_path):
         cv={"type": "grid", "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
-        cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out = orch.run(X, y)
@@ -226,7 +226,7 @@ def test_automl_lazy_branch(tmp_path):
         cv={"type": "grid", "cv_folds": 3, "verbose": 0},
     )
     orch = PipelineOrchestrator(
-        cfg=cfg, project_dir=str(tmp_path), random_state=0, ctx={"project_dir": str(tmp_path)}
+        cfg=cfg, project_dir=str(tmp_path), random_state=0, context={"project_dir": str(tmp_path)}
     )
     orch.attach_message(DummyMsg())
     out = orch.run(X, y)

@@ -101,11 +101,11 @@ def bootstrap_instance(
 ) -> T:
     if sum(x is not None for x in (cls, class_path, factory)) != 1:
         raise ValueError("bootstrap_instance: fournir exactement l'un de 'cls', 'class_path' ou 'factory'")
-    ctx = context_provider(name) if context_provider else None
+    context = context_provider(name) if context_provider else None
     params = resolve_params(
         name=name,
         defaults=defaults,
-        context=ctx,
+        context=context,
         ini_filenames=ini_filenames,
         ini_dirs=ini_dirs,
         section_prefix=section_prefix,
