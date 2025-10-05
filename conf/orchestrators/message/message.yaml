@@ -5,11 +5,12 @@ enabled: true
 locale: fr
 locales_dir: i18n/locales
 domains:
-  - general
   - config
-  - file
   - data
   - eda
+  - file
+  - general
+  - message
   - pipeline
   - report
   - streamlit_app

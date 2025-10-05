@@ -39,8 +39,20 @@ COPY pyproject.toml uv.lock ./
 RUN /root/.local/bin/uv venv "/opt/venv" && \
     /root/.local/bin/uv sync --frozen --all-extras --python /opt/venv/bin/python
 
-# Copier tout le code (inclut mlp/i18n et docs/)
-COPY . .
+# Répertoires d’écriture
+RUN install -d -m 0777 /app/outputs /app/notebooks
+
+# Copier repertoires/fichiers nécessaires
+COPY --chown=${USER}:${USER} streamlit_app.py main.py project_structure.yaml README.md pre-commit-config.yaml ./
+COPY --chown=${USER}:${USER} conf ./conf
+COPY --chown=${USER}:${USER} data ./data
+COPY --chown=${USER}:${USER} docs ./docs
+COPY --chown=${USER}:${USER} i18n ./i18n
+COPY --chown=${USER}:${USER} logs ./logs
+COPY --chown=${USER}:${USER} notebooks ./notebooks
+COPY --chown=${USER}:${USER} outputs ./outputs
+COPY --chown=${USER}:${USER} src ./src
+COPY --chown=${USER}:${USER} streamlit_pages ./streamlit_pages
 
 # Installer le paquet applicatif sans réinstaller les deps
 RUN /root/.local/bin/uv pip install --no-deps -e .

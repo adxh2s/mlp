@@ -15,6 +15,8 @@ from pathlib import Path
 from collections import OrderedDict
 from collections.abc import Callable, Mapping, MutableMapping
 from typing import Any, cast
+import gettext
+import logging
 
 from omegaconf import DictConfig, OmegaConf, open_dict
 from hydra import compose, initialize_config_dir
@@ -65,6 +67,70 @@ ENV_LOG_FILE: str = "MLP_LOG_FILE"
 
 DEFAULT_I18N_DOMAIN: str = "streamlit_app"
 DEFAULT_LOCALES_DIR: str = "i18n/locales"
+
+def _get_app_logger(app: Any) -> Any:
+    """
+    Retourne un logger applicatif; tente app.logger_manager.get_logger('streamlit_app'),
+    puis retombe sur logging.getLogger('mlp.i18n').
+    """
+    lm = getattr(app, "logger_manager", None)
+    if lm and hasattr(lm, "get_logger"):
+        try:
+            return lm.get_logger("streamlit_app")
+        except Exception:
+            pass
+    return logging.getLogger("mlp.i18n")
+
+
+def debug_dump_translations_for_mo(mo: Any, logger: Any, domain: str, max_entries: int | None = 250) -> None:
+    core = getattr(mo, "core", mo)
+    lang = getattr(core, "_cur_lang", getattr(core, "default_lang", "fr"))
+    localedir = getattr(core, "localedir", "i18n/locales")
+    try:
+        t = gettext.translation(domain, localedir=localedir, languages=[lang], fallback=False)
+    except Exception as e:
+        logger.warning("i18n_dump_failed", domain=domain, lang=lang, locales_dir=localedir, error=str(e))
+        return
+    debug_dump_translations(t, logger, domain, max_entries)
+
+
+# --- i18n debug helpers -------------------------------------------------------
+def debug_dump_translations(translation: gettext.GNUTranslations, logger: Any, domain: str, max_entries: int | None = 250) -> None:
+    """
+    Journalise en DEBUG les paires msgid/msgstr du catalogue d'un domaine.
+
+    translation: instance gettext translation déjà chargée.
+    logger: logger applicatif (structlog/logging).
+    domain: nom du domaine (ex: "streamlit_app").
+    max_entries: limite d'entrées à dumper (None pour tout).
+    """
+    catalog = getattr(translation, "_catalog", {}) or {}
+    items = [(k, v) for k, v in catalog.items() if isinstance(k, str)]
+    total = len(items)
+    if max_entries is not None:
+        items = items[:max_entries]
+    logger.debug(
+        "i18n_catalog_dump",
+        domain=domain,
+        total_entries=total,
+        dumped_entries=len(items),
+        entries=[{"msgid": k, "msgstr": v} for k, v in items],
+    )
+
+# Patch du helper
+def log_i18n_state_for_mo(mo: Any, logger: Any, fallback_domain: str = "streamlit_app") -> None:
+    if mo is None:
+        logger.info("i18n_domain_inactive", reason="no_message_orchestrator")
+        return
+    core = getattr(mo, "core", mo)
+    d = getattr(core, "domain", fallback_domain)
+    localedir = getattr(core, "localedir", "i18n/locales")
+    cur_lang = getattr(core, "_cur_lang", getattr(core, "default_lang", "fr"))
+    logger.info("i18n_domain_active", domain=d, lang=cur_lang, locales_dir=localedir)
+    # dump DEBUG inchangé, mais utiliser core.* ici aussi
+    debug_dump_translations_for_mo(core, logger, domain=d, max_entries=250)
+
+
 
 # -------------------- Construction AppOrchestrator (Hydra + fallback) --------------------
 def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None, str | None]:
@@ -188,20 +254,61 @@ def _init_defaults(context: dict[str, str] | None, cfg: DictConfig) -> None:
 
 
 # -------------------- i18n (depuis AppOrchestrator) --------------------
-def _install_translator(app: AppOrchestrator, cfg: DictConfig) -> Callable[[str, Any], str]:
-    domain = (cfg.get("i18n", {}) or {}).get("domain", "streamlit_app")
-    mo_app = getattr(app, "message_orchestrator", None)
-    st.session_state["message_orchestrator"] = mo_app  # exposer pour les pages
+def _install_translator(app: "AppOrchestrator", cfg: "DictConfig", logger: Any) -> Callable[[str, Any], str]:
+    """
+    Installe un traducteur pour l'interface Streamlit en résolvant dynamiquement le traducteur
+    sur l'orchestrator passé à l'application (soit directement, soit via son 'core').
 
-    def tr_noop(key: str, **p: Any) -> str:
+    - Si une méthode translate est trouvée (directement ou via core), elle est utilisée.
+    - Sinon, un fallback qui retourne la clé brute est installé.
+
+    Args:
+        app: Instance principale d'orchestrator Streamlit
+        cfg: Configuration DictConfig pour éventuelles options
+        logger: Instance logger pour debug et suivi
+
+    Returns:
+        Callable de traduction qui respecte la signature (str, Any) -> str :
+          - param1 : clé (str)
+          - param2 : paramètre additionnel (Any), typiquement un dict, transmis au translate
+    """
+
+    # Récupère l'orchestrator de messages, qui peut être MO ou MOApp
+    mo_app = getattr(app, "message_orchestrator", None)
+    logger.debug("Type of app.message_orchestrator", type(mo_app))
+
+    # Expose l'orchestrator pour usage externe dans Session State
+    st.session_state["message_orchestrator"] = mo_app
+
+    def tr_noop(key: str, params: Any) -> str:
+        """
+        Traducteur de secours : retourne simplement la clé non traduite.
+        Signature conforme à l'API Streamlit (str, Any) -> str.
+        """
         return key
 
-    if mo_app and hasattr(mo_app, "translate") and callable(getattr(mo_app, "translate")):
-        def tr_translate(key: str, **p: Any) -> str:
-            return mo_app.translate(domain, key, **p)  # type: ignore[attr-defined]
+    # Recherche la méthode translate sur mo_app, puis sur core si besoin
+    target = mo_app
+    if target is None or not hasattr(target, "translate") or not callable(getattr(target, "translate")):
+        target = getattr(mo_app, "core", None)
+
+    # Si traducteur valide trouvé, installe le traducteur issu du target
+    if target and hasattr(target, "translate") and callable(getattr(target, "translate")):
+        def tr_translate(key: str, params: Any) -> str:
+            """
+            Traducteur principal Streamlit, conforme à la signature.
+            Passe le domaine par défaut et les params au modèle de traduction.
+            Protège l'appel avec un try/except pour robustesse.
+            """
+            try:
+                return target.translate(DEFAULT_I18N_DOMAIN, key, params)
+            except Exception as e:
+                logger.error(f"Erreur dans le traducteur: {e}")
+                return key
         st.session_state["tr"] = tr_translate
         return tr_translate
 
+    # Fallback si aucun traducteur valide n'est trouvé
     st.session_state["tr"] = tr_noop
     return tr_noop
 
@@ -386,6 +493,7 @@ def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[]
                 st.info(HELP_TEXT)
         return page_label
 
+    
 
 # -------------------- Entrée principale --------------------
 def main() -> None:
@@ -394,9 +502,38 @@ def main() -> None:
     if app is None or cfg is None:
         st.error(f"AppOrchestrator init failed: {err}")
         return
-
+    
+    # Récupérer le logger applicatif
+    logger = _get_app_logger(app)
+    
     # 2) Installer le traducteur Streamlit à partir de l’orchestrateur Message
-    tr = _install_translator(app, cfg)
+    tr = _install_translator(app, cfg, logger)
+    
+    # Récupère l'instance de MessageOrchestrator déposée par _install_translator
+    mo = st.session_state.get("message_orchestrator") or getattr(app, "message_orchestrator", None)
+    
+    # Domaine issu de la config i18n ou fallback "streamlit_app"
+    domain = (cfg.get("i18n", {}) or {}).get("domain", "streamlit_app")
+    
+    # 
+    log_i18n_state_for_mo(mo, logger, fallback_domain=domain)
+
+    # Remplace l'usage direct de mo.* par:
+    mo_core = getattr(mo, "core", mo)
+
+    logger.info(
+        "i18n_key_values",
+        domain=getattr(mo_core, "domain", "streamlit_app"),
+        lang=getattr(mo_core, "_cur_lang", getattr(mo_core, "default_lang", "fr")),
+        locales_dir=getattr(mo_core, "localedir", "i18n/locales"),
+        values={
+            "TITLE_REPORT": mo_core.get("TITLE_REPORT"),
+            "BTN_RUN_REPORT": mo_core.get("BTN_RUN_REPORT"),
+            "REPORT_DONE": mo_core.get("REPORT_DONE"),
+            "REPORT_ORCHESTRATOR_FAILED": mo_core.get("REPORT_ORCHESTRATOR_FAILED"),
+        },
+    )
+
 
     # 3) Contextes/chemins depuis AppOrchestrator pour préremplir l’UI
     context = getattr(app, "context", {}) if hasattr(app, "context") else {}
