@@ -44,7 +44,7 @@ def run() -> None:
     - Utilise le contexte partagé pour les chemins si besoin.
     """
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_DEMO"))
+    st.title(tr("TITLE_DEMO", None))
 
     outputs_dir = cast(str, st.session_state.get(SS_CTX, {}).get("outputs_root", "outputs"))
     project_name = cast(str, getattr(st.session_state.get(SS_APP_CONFIG, None), "project", None).name if st.session_state.get(SS_APP_CONFIG) else "demo_project")
@@ -52,8 +52,8 @@ def run() -> None:
     c1, c2 = st.columns([1, 2], gap="large")
     with c1:
         st.subheader("Paramètres")
-        joueur = st.selectbox(tr("LBL_PLAYER") if callable(tr) else "Joueur", ["A", "B", "C"], index=0)
-        essais = st.slider(tr("LBL_ATTEMPTS") if callable(tr) else "Essais", 10, 200, 50, 10)
+        joueur = st.selectbox(tr("LBL_PLAYER", None) if callable(tr) else "Joueur", ["A", "B", "C"], index=0)
+        essais = st.slider(tr("LBL_ATTEMPTS", None) if callable(tr) else "Essais", 10, 200, 50, 10)
         seed = st.number_input("Seed", min_value=0, value=42, step=1)
 
     with c2:

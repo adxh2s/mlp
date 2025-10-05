@@ -41,7 +41,7 @@ def run() -> None:
     - Affiche un viewer pour les exports HTML, et des liens vers les .ipynb.
     """
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_NOTEBOOK"))
+    st.title(tr("TITLE_NOTEBOOK", None))
 
     # Par défaut: {project_dir}/notebooks
     project_dir = cast(str, st.session_state.get(SS_CTX, {}).get("project_dir", "."))
@@ -55,10 +55,10 @@ def run() -> None:
 
     htmls, ipynb = _list_assets(root)
 
-    st.subheader(tr("LBL_HTML_EXPORTED") if callable(tr) else "Exports HTML")
+    st.subheader(tr("LBL_HTML_EXPORTED", None) if callable(tr) else "Exports HTML")
     if htmls:
         sel_html = st.selectbox(
-            tr("LBL_HTML_EXPORTED") if callable(tr) else "HTML disponibles",
+            tr("LBL_HTML_EXPORTED", None) if callable(tr) else "HTML disponibles",
             htmls,
             format_func=lambda p: p.relative_to(root),
         )
@@ -66,7 +66,7 @@ def run() -> None:
     else:
         st.caption("Aucun export HTML trouvé.")
 
-    st.subheader(tr("LBL_NOTEBOOKS") if callable(tr) else "Notebooks")
+    st.subheader(tr("LBL_NOTEBOOKS", None) if callable(tr) else "Notebooks")
     if ipynb:
         for nb in ipynb:
             if notebook_url:

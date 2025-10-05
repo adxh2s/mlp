@@ -66,7 +66,7 @@ def run() -> None:
     # Header et filtres logs (input de sélection, regex, nb lignes)
     # ----------------------------------------------------------------------
     tr: Callable[[str], str] = st.session_state.get("tr", lambda s, **p: s)
-    st.header(tr("NAV_LOGS") if callable(tr) else "Logs")
+    st.header(tr("NAV_LOGS", None) if callable(tr) else "Logs")
 
     log_file: str = st.text_input("Fichier log", value=st.session_state.get("log_file", DEFAULT_LOG_FILE))
     st.session_state["log_file"] = log_file

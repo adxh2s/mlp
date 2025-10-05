@@ -35,7 +35,7 @@ def _render_docs_safe(renderer: Callable[[str], None], section: str) -> None:
 @log_page("home")
 def run() -> None:
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda s, **p: s))
-    st.header(tr("NAV_HOME") if callable(tr) else "Accueil")
+    st.header(tr("NAV_HOME", None) if callable(tr) else "Accueil")
 
     renderer = cast(Callable[[str], None], st.session_state.get(SS_RENDER_DOCS, _fallback_render_docs))
     try:

@@ -434,62 +434,62 @@ def _preload_file_to_data(context: dict[str, Any], cfg: DictConfig) -> dict[str,
 def _pages_registry(tr: Callable[[str, Any], str]) -> "OrderedDict[str, Callable[[], None]]":
     return OrderedDict(
         [
-            (tr("NAV_HOME") if callable(tr) else "Accueil", home.run),
-            (tr("NAV_EDA") if callable(tr) else "EDA", eda.run),
-            (tr("NAV_PIPELINE") if callable(tr) else "Pipelines", pipeline.run),
-            (tr("NAV_REPORT") if callable(tr) else "Rapports", report.run),
-            (tr("NAV_NOTEBOOK") if callable(tr) else "Notebooks", notebook.run),
-            (tr("NAV_DEMO") if callable(tr) else "Démo", demo.run),
-            (tr("NAV_LOGS") if callable(tr) else "Logs", logs.run),
+            (tr("NAV_HOME", None) if callable(tr) else "Accueil", home.run),
+            (tr("NAV_EDA", None) if callable(tr) else "EDA", eda.run),
+            (tr("NAV_PIPELINE", None) if callable(tr) else "Pipelines", pipeline.run),
+            (tr("NAV_REPORT", None) if callable(tr) else "Rapports", report.run),
+            (tr("NAV_NOTEBOOK", None) if callable(tr) else "Notebooks", notebook.run),
+            (tr("NAV_DEMO", None) if callable(tr) else "Démo", demo.run),
+            (tr("NAV_LOGS", None) if callable(tr) else "Logs", logs.run),
         ]
     )
 
 def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[], None]]") -> str:
     with st.sidebar:
-        st.header(tr("APP_TITLE") if callable(tr) else APP_TITLE)
+        st.header(tr("APP_TITLE", None) if callable(tr) else APP_TITLE)
         page_label = st.selectbox(
-            label=tr("LBL_PAGE") if callable(tr) else "Page",
+            label=tr("LBL_PAGE", None) if callable(tr) else "Page",
             options=list(pages.keys()),
             index=0,
         )
         st.text_input(
-            label=tr("LBL_PROJECT") if callable(tr) else "Projet",
+            label=tr("LBL_PROJECT", None) if callable(tr) else "Projet",
             value=cast(str, st.session_state.get(SS_PROJECT_NAME, "")),
             key=SS_PROJECT_NAME,
         )
         st.text_input(
-            label=tr("LBL_OUTPUTS_DIR") if callable(tr) else "Outputs dir",
+            label=tr("LBL_OUTPUTS_DIR", None) if callable(tr) else "Outputs dir",
             value=cast(str, st.session_state.get(SS_OUTPUTS_DIR, "")),
             key=SS_OUTPUTS_DIR,
         )
         st.text_input(
-            label=tr("LBL_DOCS_DIR") if callable(tr) else "Docs dir",
+            label=tr("LBL_DOCS_DIR", None) if callable(tr) else "Docs dir",
             value=cast(str, st.session_state.get(SS_DOCS_DIR, "")),
             key=SS_DOCS_DIR,
         )
         st.text_input(
-            label=tr("LBL_NOTEBOOKS_DIR") if callable(tr) else "Notebooks dir",
+            label=tr("LBL_NOTEBOOKS_DIR", None) if callable(tr) else "Notebooks dir",
             value=cast(str, st.session_state.get(SS_NOTEBOOK_DIR, "")),
             key=SS_NOTEBOOK_DIR,
         )
         st.text_input(
-            label=tr("LBL_NOTEBOOKS_URL") if callable(tr) else "Notebooks URL",
+            label=tr("LBL_NOTEBOOKS_URL", None) if callable(tr) else "Notebooks URL",
             value=cast(str, st.session_state.get(SS_NOTEBOOK_URL, "")),
             key=SS_NOTEBOOK_URL,
         )
         st.text_input(
-            label=tr("LBL_LANG") if callable(tr) else "Langue",
+            label=tr("LBL_LANG", None) if callable(tr) else "Langue",
             value=cast(str, st.session_state.get(SS_LANG, "")),
             key=SS_LANG,
         )
         col1, col2 = st.columns(2)
         with col1:
-            if st.button(tr("BTN_CLEAR_CACHE") if callable(tr) else "Vider le cache"):
+            if st.button(tr("BTN_CLEAR_CACHE", None) if callable(tr) else "Vider le cache"):
                 st.cache_data.clear()
                 st.cache_resource.clear()
-                st.success(tr("MSG_CACHE_CLEARED") if callable(tr) else "Cache vidé.")
+                st.success(tr("MSG_CACHE_CLEARED", None) if callable(tr) else "Cache vidé.")
         with col2:
-            if st.button(tr("BTN_HELP") if callable(tr) else "Aide"):
+            if st.button(tr("BTN_HELP", None) if callable(tr) else "Aide"):
                 st.info(HELP_TEXT)
         return page_label
 
@@ -560,7 +560,7 @@ def main() -> None:
     # 6) Navigation/pages
     pages = _pages_registry(tr)
     page_label = _sidebar(tr, pages)
-    st.title(tr("APP_TITLE") if callable(tr) else APP_TITLE)
+    st.title(tr("APP_TITLE", None) if callable(tr) else APP_TITLE)
     runner = pages.get(page_label)
     if runner is None:
         st.error(f"Page inconnue: {page_label}")

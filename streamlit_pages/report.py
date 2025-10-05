@@ -134,7 +134,7 @@ def run() -> None:
     - UX et messages robustes en cas d'échec.
     """
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_REPORT"))
+    st.title(tr("TITLE_REPORT", None))
 
     # Récupération de la config applicative
     app_config = cast(DictConfig | dict[str, Any], st.session_state.get(SS_APP_CONFIG, {}))
@@ -161,7 +161,7 @@ def run() -> None:
     pipeline_payload = cast(MutableMapping[str, Any], st.session_state.get(SS_PIPELINE_RESULT, {"results": []}))
 
     # Génération du rapport à la demande
-    if st.button(tr("BTN_RUN_REPORT") if callable(tr) else "Générer rapport"):
+    if st.button(tr("BTN_RUN_REPORT", None) if callable(tr) else "Générer rapport"):
         try:
             result = _run_report(
                 report_config_obj,
@@ -173,7 +173,7 @@ def run() -> None:
                 dict(pipeline_payload),
             )
             st.session_state[SS_REPORT_RESULT] = result
-            st.success(tr("REPORT_DONE") if callable(tr) else "Rapport généré.")
+            st.success(tr("REPORT_DONE", None) if callable(tr) else "Rapport généré.")
         except Exception as exc:
             st.error(f"{tr('REPORT_ORCHESTRATOR_FAILED') if callable(tr) else 'Rapport échoué'} — {exc}")
 

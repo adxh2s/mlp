@@ -50,22 +50,22 @@ def _run_eda(eda_cfg: EDAConfig, project_dir: str, context: dict[str, Any], logg
 @log_page("eda")
 def run() -> None:
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_EDA"))
+    st.title(tr("TITLE_EDA", None))
 
     data = cast(MutableMapping[str, Any], st.session_state.get(SS_DATA_RESULT, {}))
     if not data or data.get("X") is None:
-        st.info(tr("MSG_NO_DATA_EDA") if callable(tr) else "Aucun dataset chargé.")
+        st.info(tr("MSG_NO_DATA_EDA", None) if callable(tr) else "Aucun dataset chargé.")
         return
 
     X = cast(pd.DataFrame, data.get("X"))
     y = cast(pd.Series | None, data.get("y"))
 
-    with st.expander(tr("LBL_DATA_PREVIEW") if callable(tr) else "Aperçu du dataset", expanded=True):
+    with st.expander(tr("LBL_DATA_PREVIEW", None) if callable(tr) else "Aperçu du dataset", expanded=True):
         n_show = st.number_input("Lignes à afficher", min_value=5, max_value=100, value=10, step=5)
         st.write(X.head(int(n_show)))
         st.write({"shape": tuple(getattr(X, "shape", (None, None))), "y_present": y is not None})
 
-    if st.button(tr("BTN_RUN_EDA") if callable(tr) else "Lancer EDA", type="primary"):
+    if st.button(tr("BTN_RUN_EDA", None) if callable(tr) else "Lancer EDA", type="primary"):
         # Préparer la config Pydantic
         app_config = cast(DictConfig | dict[str, Any], st.session_state.get(SS_APP_CONFIG, {}))
         if isinstance(app_config, DictConfig):
@@ -83,8 +83,8 @@ def run() -> None:
         try:
             result = _run_eda(eda_cfg_obj, project_dir, context, logger_manager, X, y)
             st.session_state[SS_EDA_RESULT] = result
-            st.success(tr("MSG_EDA_DONE") if callable(tr) else "EDA terminée.")
-            with st.expander(tr("LBL_EDA_RESULT") if callable(tr) else "Résultat EDA", expanded=False):
+            st.success(tr("MSG_EDA_DONE", None) if callable(tr) else "EDA terminée.")
+            with st.expander(tr("LBL_EDA_RESULT", None) if callable(tr) else "Résultat EDA", expanded=False):
                 st.json(result if isinstance(result, dict) else {"result": str(result)})
         except Exception as e:  # le décorateur a déjà logué l’erreur avec la pile
             st.error(f"{tr('MSG_EDA_FAILED') if callable(tr) else 'EDA échouée'} — {e}")

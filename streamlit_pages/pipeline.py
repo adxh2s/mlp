@@ -47,13 +47,13 @@ def _run_pipeline(cfg: PipelineConfig, project_dir: str, context: dict[str, Any]
 @log_page("pipeline")
 def run() -> None:
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_PIPELINES"))
+    st.title(tr("TITLE_PIPELINES", None))
 
     data = cast(MutableMapping[str, Any], st.session_state.get(SS_DATA_RESULT, {}))
     X = data.get("X")
     y = data.get("y")
     if X is None or y is None:
-        st.info(tr("MSG_NO_INPUT_FILE") if callable(tr) else "Aucun dataset avec cible disponible.")
+        st.info(tr("MSG_NO_INPUT_FILE", None) if callable(tr) else "Aucun dataset avec cible disponible.")
         return
 
     app_config = cast(DictConfig | dict[str, Any], st.session_state.get(SS_APP_CONFIG, {}))
@@ -86,11 +86,11 @@ def run() -> None:
         st.caption("PipelineOrchestrator désactivé dans la configuration.")
         return
 
-    if st.button(tr("BTN_RUN_PIPELINE") if callable(tr) else "Lancer pipeline"):
+    if st.button(tr("BTN_RUN_PIPELINE", None) if callable(tr) else "Lancer pipeline"):
         try:
             res = _run_pipeline(pipeline_cfg_obj, str(project_dir), context, st.session_state.get(SS_LOGGER_MANAGER), X, y)
             st.session_state[SS_PIPELINE_RESULT] = res
-            st.success(tr("PIPELINE_DONE") if callable(tr) else "Pipeline terminé.")
+            st.success(tr("PIPELINE_DONE", None) if callable(tr) else "Pipeline terminé.")
             st.json(res)
         except Exception as e:
             st.error(f"{tr('PIPELINE_ORCHESTRATOR_FAILED') if callable(tr) else 'Pipeline échoué'} — {e}")
