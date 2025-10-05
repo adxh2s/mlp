@@ -1,13 +1,6 @@
 from __future__ import annotations
 
 import streamlit as st
-
-# -------------------- Page config (doit être le premier appel Streamlit) --------------------
-APP_TITLE: str = "MLP App"
-APP_ICON: str = "📊"
-PAGE_LAYOUT: str = "wide"
-st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=PAGE_LAYOUT)
-
 import os
 import re
 import glob
@@ -23,17 +16,17 @@ from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from hydra.core.hydra_config import HydraConfig
 
-# Orchestrateur d'application (logger + config + message)
 from src.orchestrators.app import AppOrchestrator
-
-# Instrumentation utilitaire (préchargement Data + logs décorés)
 from src.instrumentation.data_manager import DataManager
 from src.instrumentation.decorators import log_call_ex, summarize_df_y
 
-# -------------------- Pages (doivent exposer run()) --------------------
 from streamlit_pages import demo, eda, home, notebook, pipeline, report, logs  # noqa: E402
 
-# -------------------- Help UI --------------------
+APP_TITLE: str = "MLP App"
+APP_ICON: str = "📊"
+PAGE_LAYOUT: str = "wide"
+st.set_page_config(page_title=APP_TITLE, page_icon=APP_ICON, layout=PAGE_LAYOUT)
+
 HELP_TEXT = """
 Entrée principale Streamlit: i18n via gettext, navigation multipages, config via AppOrchestrator.
 - set_page_config appelé une seule fois.
@@ -41,15 +34,13 @@ Entrée principale Streamlit: i18n via gettext, navigation multipages, config vi
 - Compatibilité Docker: conf/config.yaml et i18n/locales montés, avec fallback contrôlé.
 """
 
-# -------------------- Clés session_state & env --------------------
+# ------------------- Session State & ENV Keys -------------------
 SS_OUTPUTS_DIR: str = "outputs_dir"
 SS_PROJECT_NAME: str = "project_name"
 SS_NOTEBOOK_DIR: str = "notebooks_dir"
 SS_NOTEBOOK_URL: str = "notebooks_url"
 SS_LANG: str = "lang"
 SS_DOCS_DIR: str = "docs_dir"
-
-# Clés partagées avec les pages et l’app standalone
 SS_CTX: str = "context"
 SS_APP_CONFIG: str = "app_config"
 SS_LOGGER_MANAGER: str = "logger_manager"
@@ -68,10 +59,10 @@ ENV_LOG_FILE: str = "MLP_LOG_FILE"
 DEFAULT_I18N_DOMAIN: str = "streamlit_app"
 DEFAULT_LOCALES_DIR: str = "i18n/locales"
 
+# -------------------- Logger Utilitaire --------------------
 def _get_app_logger(app: Any) -> Any:
     """
-    Retourne un logger applicatif; tente app.logger_manager.get_logger('streamlit_app'),
-    puis retombe sur logging.getLogger('mlp.i18n').
+    Retourne un logger applicatif; tente app.logger_manager.get_logger('streamlit_app'), sinon getLogger.
     """
     lm = getattr(app, "logger_manager", None)
     if lm and hasattr(lm, "get_logger"):
@@ -81,7 +72,7 @@ def _get_app_logger(app: Any) -> Any:
             pass
     return logging.getLogger("mlp.i18n")
 
-
+# -------------------- I18n Debug Helpers --------------------
 def debug_dump_translations_for_mo(mo: Any, logger: Any, domain: str, max_entries: int | None = 250) -> None:
     core = getattr(mo, "core", mo)
     lang = getattr(core, "_cur_lang", getattr(core, "default_lang", "fr"))
@@ -93,16 +84,9 @@ def debug_dump_translations_for_mo(mo: Any, logger: Any, domain: str, max_entrie
         return
     debug_dump_translations(t, logger, domain, max_entries)
 
-
-# --- i18n debug helpers -------------------------------------------------------
 def debug_dump_translations(translation: gettext.GNUTranslations, logger: Any, domain: str, max_entries: int | None = 250) -> None:
     """
     Journalise en DEBUG les paires msgid/msgstr du catalogue d'un domaine.
-
-    translation: instance gettext translation déjà chargée.
-    logger: logger applicatif (structlog/logging).
-    domain: nom du domaine (ex: "streamlit_app").
-    max_entries: limite d'entrées à dumper (None pour tout).
     """
     catalog = getattr(translation, "_catalog", {}) or {}
     items = [(k, v) for k, v in catalog.items() if isinstance(k, str)]
@@ -117,8 +101,10 @@ def debug_dump_translations(translation: gettext.GNUTranslations, logger: Any, d
         entries=[{"msgid": k, "msgstr": v} for k, v in items],
     )
 
-# Patch du helper
 def log_i18n_state_for_mo(mo: Any, logger: Any, fallback_domain: str = "streamlit_app") -> None:
+    """
+    Log l’état du domaine i18n, pour diagnostics et intégration avancée.
+    """
     if mo is None:
         logger.info("i18n_domain_inactive", reason="no_message_orchestrator")
         return
@@ -127,32 +113,22 @@ def log_i18n_state_for_mo(mo: Any, logger: Any, fallback_domain: str = "streamli
     localedir = getattr(core, "localedir", "i18n/locales")
     cur_lang = getattr(core, "_cur_lang", getattr(core, "default_lang", "fr"))
     logger.info("i18n_domain_active", domain=d, lang=cur_lang, locales_dir=localedir)
-    # dump DEBUG inchangé, mais utiliser core.* ici aussi
     debug_dump_translations_for_mo(core, logger, domain=d, max_entries=250)
 
-
-
-# -------------------- Construction AppOrchestrator (Hydra + fallback) --------------------
+# -------------------- AppOrchestrator Construction --------------------
 def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None, str | None]:
     """
-    1) Essaye: initialize_config_dir + compose + HydraConfig.set_config + AppOrchestrator dans le même bloc.
-    2) Fallback: OmegaConf.load si config.yaml direct est autosuffisant.
-    3) Fallback: config minimale incluant orchestrators.
+    Bootstraps l’orchestrateur principal : Hydra priorité, fallback OmegaConf ou config minimale.
     """
     last_err: str | None = None
-
-    # 1) Composition Hydra + init orchestrateur dans le même contexte
     for conf_dir in ("conf", "/app/conf"):
         cfg_path = Path(conf_dir) / "config.yaml"
         if cfg_path.is_file():
             try:
-                # Clear pour éviter "Hydra is already initialized" à chaque rerun Streamlit
                 GlobalHydra.instance().clear()
                 with initialize_config_dir(version_base=None, config_dir=str(Path(conf_dir).resolve())):
-                    # Inclure le noeud hydra et initialiser explicitement HydraConfig pour get_original_cwd()
                     cfg = compose(config_name="config", return_hydra_config=True)
                     HydraConfig.instance().set_config(cfg)
-                    # Optionnel: retirer le noeud hydra de la config applicative
                     with open_dict(cfg):
                         if "hydra" in cfg:
                             del cfg["hydra"]
@@ -160,8 +136,6 @@ def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None
                     return app, cast(DictConfig, cfg), None
             except Exception as e:
                 last_err = f"{e}"
-
-    # 2) Fallback: simple lecture (si pas de defaults Hydra)
     for candidate in ("conf/config.yaml", "/app/conf/config.yaml"):
         try:
             p = Path(candidate)
@@ -171,8 +145,6 @@ def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None
                 return app2, cfg2, None
         except Exception as e:
             last_err = f"{e}"
-
-    # 3) Fallback minimal compatible AppOrchestrator (inclut orchestrators)
     try:
         cfg3 = cast(
             DictConfig,
@@ -196,14 +168,7 @@ def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None
                             "locale": os.getenv(ENV_LANG, "fr"),
                             "locales_dir": DEFAULT_LOCALES_DIR,
                             "domains": [
-                                "general",
-                                "config",
-                                "file",
-                                "data",
-                                "eda",
-                                "pipeline",
-                                "report",
-                                "streamlit_app",
+                                "general", "config", "file", "data", "eda", "pipeline", "report", "streamlit_app"
                             ],
                         },
                         "file": {"enabled": True, "data_dir": "data", "in_dir": "in", "out_dir": "out"},
@@ -224,12 +189,13 @@ def _build_app_orchestrator() -> tuple[AppOrchestrator | None, DictConfig | None
         return app3, cfg3, None
     except Exception as e:
         last_err = f"{e}"
-
     return None, None, last_err or "Unknown error"
 
-
-# -------------------- Defaults UI (session) --------------------
+# -------------------- Defaults UI (Session) --------------------
 def _init_defaults(context: dict[str, str] | None, cfg: DictConfig) -> None:
+    """
+    Initialise les valeurs par défaut dans st.session_state pour les chemins, configs divers.
+    """
     ss: MutableMapping[str, Any] = cast(MutableMapping[str, Any], st.session_state)
     outputs_root = (context or {}).get("outputs_root") or os.getenv(ENV_OUTPUTS_DIR, "outputs")
     project_name = (
@@ -252,66 +218,32 @@ def _init_defaults(context: dict[str, str] | None, cfg: DictConfig) -> None:
         if k not in ss:
             ss[k] = v
 
-
-# -------------------- i18n (depuis AppOrchestrator) --------------------
-def _install_translator(app: "AppOrchestrator", cfg: "DictConfig", logger: Any) -> Callable[[str, Any], str]:
+# -------------------- i18n via AppOrchestrator: multi-domaine natif --------------------
+def _install_translator(
+    app: "AppOrchestrator", cfg: "DictConfig", logger: Any
+) -> Callable[[str, Any, Any], str]:
     """
-    Installe un traducteur pour l'interface Streamlit en résolvant dynamiquement le traducteur
-    sur l'orchestrator passé à l'application (soit directement, soit via son 'core').
-
-    - Si une méthode translate est trouvée (directement ou via core), elle est utilisée.
-    - Sinon, un fallback qui retourne la clé brute est installé.
-
-    Args:
-        app: Instance principale d'orchestrator Streamlit
-        cfg: Configuration DictConfig pour éventuelles options
-        logger: Instance logger pour debug et suivi
-
-    Returns:
-        Callable de traduction qui respecte la signature (str, Any) -> str :
-          - param1 : clé (str)
-          - param2 : paramètre additionnel (Any), typiquement un dict, transmis au translate
+    Installe le traducteur Streamlit multi-domaine (via MessageOrchestrator v2).
+    Signature étendue : (key: str, params: dict, domains: str|list|tuple = DEFAULT_I18N_DOMAIN) -> str.
     """
-
-    # Récupère l'orchestrator de messages, qui peut être MO ou MOApp
     mo_app = getattr(app, "message_orchestrator", None)
-    logger.debug("Type of app.message_orchestrator", type(mo_app))
-
-    # Expose l'orchestrator pour usage externe dans Session State
     st.session_state["message_orchestrator"] = mo_app
 
-    def tr_noop(key: str, params: Any) -> str:
-        """
-        Traducteur de secours : retourne simplement la clé non traduite.
-        Signature conforme à l'API Streamlit (str, Any) -> str.
-        """
+    def tr_noop(key: str, params: Any = None, domains: Any = DEFAULT_I18N_DOMAIN) -> str:
         return key
 
-    # Recherche la méthode translate sur mo_app, puis sur core si besoin
-    target = mo_app
-    if target is None or not hasattr(target, "translate") or not callable(getattr(target, "translate")):
-        target = getattr(mo_app, "core", None)
-
-    # Si traducteur valide trouvé, installe le traducteur issu du target
+    target = mo_app if hasattr(mo_app, "translate") else getattr(mo_app, "core", None)
     if target and hasattr(target, "translate") and callable(getattr(target, "translate")):
-        def tr_translate(key: str, params: Any) -> str:
-            """
-            Traducteur principal Streamlit, conforme à la signature.
-            Passe le domaine par défaut et les params au modèle de traduction.
-            Protège l'appel avec un try/except pour robustesse.
-            """
+        def tr_translate(key: str, params: Any = None, domains: Any = DEFAULT_I18N_DOMAIN) -> str:
             try:
-                return target.translate(DEFAULT_I18N_DOMAIN, key, params)
+                return target.translate(domains, key, **(params or {}))
             except Exception as e:
-                logger.error(f"Erreur dans le traducteur: {e}")
+                logger.error(f"Erreur traducteur: {e}")
                 return key
         st.session_state["tr"] = tr_translate
         return tr_translate
-
-    # Fallback si aucun traducteur valide n'est trouvé
     st.session_state["tr"] = tr_noop
     return tr_noop
-
 
 # -------------------- Images Markdown: CSS + Réécriture --------------------
 _IMG_MD_RE = re.compile(r'!\[(?P<alt>[^\]]*)\]\((?P<src>[^)]+)\)')
@@ -321,22 +253,22 @@ def _inject_md_image_css() -> None:
     st.markdown(
         """
         <style>
-        /* Styles additionnels si besoin */
         .stMarkdown img { max-width: 100%; height: auto; }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True
     )
 
 def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> str:
+    """
+    Réécrit les liens images Markdown en URLs statiques et safe pour Streamlit static hosting.
+    """
     md_dir = Path(md_file).parent
     try:
-        md_dir_rel = md_dir.relative_to(docs_base)  # ex: fr/home
+        md_dir_rel = md_dir.relative_to(docs_base)
     except Exception:
         return md_text
     docs_url_root = os.path.basename(os.path.normpath(docs_base)) if os.path.isabs(docs_base) else docs_base
     static_base = f"app/static/{docs_url_root}/{md_dir_rel.as_posix()}/"
-
     def _rewrite_src(src: str) -> str:
         s = src.strip().strip("'\"")
         if s.startswith(("http://", "https://", "app/static/")):
@@ -345,7 +277,6 @@ def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> 
             s2 = s.lstrip("./")
             return f"{static_base}{s2}"
         return src
-
     def md_sub(m: re.Match) -> str:
         alt = m.group("alt")
         src = m.group("src")
@@ -355,19 +286,19 @@ def _rewrite_image_urls(md_text: str, md_file: str, docs_base: str = "docs") -> 
             return f'![{alt}]({new} {title})'
         new = _rewrite_src(src)
         return f'![{alt}]({new})'
-
     def html_sub(m: re.Match) -> str:
         src = m.group("src")
         new = _rewrite_src(src)
         return m.group(0).replace(src, new)
-
     md_text = _IMG_MD_RE.sub(md_sub, md_text)
     md_text = _IMG_HTML_RE.sub(html_sub, md_text)
     return md_text
 
-
-# -------------------- Rendu Markdown (docs) --------------------
+# -------------------- Rendu Markdown (docs dynamiques) --------------------
 def render_docs(section: str, lang: str | None = None) -> None:
+    """
+    Rendu dynamique de la documentation en Markdown, pour le home ou les sections de l’app.
+    """
     base = cast(str, st.session_state.get(SS_DOCS_DIR, "docs"))
     cur_lang = (lang or cast(str, st.session_state.get(SS_LANG, os.getenv(ENV_LANG, "fr")))).lower()
     patterns = [
@@ -394,10 +325,11 @@ def render_docs(section: str, lang: str | None = None) -> None:
         except Exception as e:
             st.warning(f"Impossible de lire {path}: {e}")
 
-
-# -------------------- Préchargement File→Data (sans EDA/Pipeline/Report) --------------------
+# -------------------- Préchargement File→Data --------------------
 def _find_initial_dataset(context: dict[str, Any]) -> Path | None:
-    # Priorité à dataset_V5.csv si présent, sinon premier fichier éligible
+    """
+    Trouve le jeu de données initial à charger automatiquement.
+    """
     data_in = Path(context.get("data_in", "data/in"))
     if not data_in.exists():
         return None
@@ -410,14 +342,16 @@ def _find_initial_dataset(context: dict[str, Any]) -> Path | None:
             return matches[0]
     return None
 
-@log_call_ex("streamlit.preload_data")  # log start/end + error via logger_manager/structlog/logging
+@log_call_ex("streamlit.preload_data")
 def _preload_file_to_data(context: dict[str, Any], cfg: DictConfig) -> dict[str, Any]:
+    """
+    Charge le jeu de données principal au démarrage pour accélérer l’UX Streamlit.
+    """
     path = _find_initial_dataset(context)
     if path is None:
         return {}
     data_cfg = {}
     if isinstance(cfg, Mapping):
-        # Prendre la section orchestrators.data si disponible
         data_cfg = cast(dict[str, Any], (cfg.get("orchestrators", {}) or {}).get("data", {}) or {})
     dm = DataManager(config=data_cfg)
     X, y = dm.prepare_for_ml(path)
@@ -429,9 +363,11 @@ def _preload_file_to_data(context: dict[str, Any], cfg: DictConfig) -> dict[str,
     }
     return {"X": X, "y": y, "metadata": meta}
 
-
-# -------------------- UI: registres et sidebar --------------------
+# -------------------- UI: Pages Registry & Sidebar --------------------
 def _pages_registry(tr: Callable[[str, Any], str]) -> "OrderedDict[str, Callable[[], None]]":
+    """
+    Génère le registre des pages Streamlit multipages.
+    """
     return OrderedDict(
         [
             (tr("NAV_HOME", None) if callable(tr) else "Accueil", home.run),
@@ -445,6 +381,9 @@ def _pages_registry(tr: Callable[[str, Any], str]) -> "OrderedDict[str, Callable
     )
 
 def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[], None]]") -> str:
+    """
+    Dessine la barre latérale de navigation, projet, dossiers, langue, boutons d’aide/cache.
+    """
     with st.sidebar:
         st.header(tr("APP_TITLE", None) if callable(tr) else APP_TITLE)
         page_label = st.selectbox(
@@ -493,32 +432,23 @@ def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[]
                 st.info(HELP_TEXT)
         return page_label
 
-    
-
-# -------------------- Entrée principale --------------------
+# -------------------- Entrée Principale App --------------------
 def main() -> None:
-    # 1) Construire AppOrchestrator (Hydra-first + fallback)
+    """
+    Entrée principale Streamlit : Bootstrapping AppOrchestrator, i18n multi-domaine, UI multipage, docs dynamiques.
+    """
+    # 1) AppOrchestrator + config
     app, cfg, err = _build_app_orchestrator()
     if app is None or cfg is None:
         st.error(f"AppOrchestrator init failed: {err}")
         return
-    
-    # Récupérer le logger applicatif
     logger = _get_app_logger(app)
-    
-    # 2) Installer le traducteur Streamlit à partir de l’orchestrateur Message
+    # 2) Installe le traducteur multi-domaine pour l’UI
     tr = _install_translator(app, cfg, logger)
-    
-    # Récupère l'instance de MessageOrchestrator déposée par _install_translator
     mo = st.session_state.get("message_orchestrator") or getattr(app, "message_orchestrator", None)
-    
-    # Domaine issu de la config i18n ou fallback "streamlit_app"
     domain = (cfg.get("i18n", {}) or {}).get("domain", "streamlit_app")
-    
-    # 
+    logger.debug(f"Calling log_i18n_state_for_mo with domain={domain}, mo={type(mo)}")
     log_i18n_state_for_mo(mo, logger, fallback_domain=domain)
-
-    # Remplace l'usage direct de mo.* par:
     mo_core = getattr(mo, "core", mo)
 
     logger.info(
@@ -534,18 +464,17 @@ def main() -> None:
         },
     )
 
-
-    # 3) Contextes/chemins depuis AppOrchestrator pour préremplir l’UI
+    # 3) Initialisation des valeurs UI/diverses
     context = getattr(app, "context", {}) if hasattr(app, "context") else {}
     _init_defaults(context, cfg)
 
-    # 4) Exposer les ressources standardisées (alignées standalone)
+    # 4) Expose les helpers dans session_state pour pages
     st.session_state[SS_RENDER_DOCS] = render_docs
     st.session_state[SS_LOGGER_MANAGER] = getattr(app, "logger_manager", None)
     st.session_state[SS_CTX] = context
     st.session_state[SS_APP_CONFIG] = cfg
 
-    # 5) Préchargement File→Data (unique, sans EDA/Pipeline/Report)
+    # 5) Préchargement des données principales
     if SS_DATA_RESULT not in st.session_state:
         try:
             if isinstance(cfg, Mapping):
@@ -557,7 +486,7 @@ def main() -> None:
         except Exception as e:
             st.warning(f"Préchargement File→Data indisponible: {e}")
 
-    # 6) Navigation/pages
+    # 6) Navigation multipage et affichage
     pages = _pages_registry(tr)
     page_label = _sidebar(tr, pages)
     st.title(tr("APP_TITLE", None) if callable(tr) else APP_TITLE)
@@ -566,7 +495,6 @@ def main() -> None:
         st.error(f"Page inconnue: {page_label}")
         return
     runner()
-
 
 if __name__ == "__main__":
     main()
