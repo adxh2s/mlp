@@ -66,7 +66,7 @@ def run() -> None:
     else:
         st.caption("Aucun export HTML trouvé.")
 
-    st.subheader(tr("LBL_NOTEBOOKS", None) if callable(tr) else "Notebooks")
+    st.subheader(tr("LBL_NOTEBOOK", None) if callable(tr) else "Notebooks")
     if ipynb:
         for nb in ipynb:
             if notebook_url:

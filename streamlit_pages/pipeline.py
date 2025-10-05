@@ -47,7 +47,7 @@ def _run_pipeline(cfg: PipelineConfig, project_dir: str, context: dict[str, Any]
 @log_page("pipeline")
 def run() -> None:
     tr: Callable[[str], str] = cast(Callable[[str], str], st.session_state.get("tr", lambda k, **p: k))
-    st.title(tr("TITLE_PIPELINES", None))
+    st.title(tr("TITLE_PIPELINE", None))
 
     data = cast(MutableMapping[str, Any], st.session_state.get(SS_DATA_RESULT, {}))
     X = data.get("X")

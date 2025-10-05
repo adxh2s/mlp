@@ -407,12 +407,12 @@ def _sidebar(tr: Callable[[str, Any], str], pages: "OrderedDict[str, Callable[[]
             key=SS_DOCS_DIR,
         )
         st.text_input(
-            label=tr("LBL_NOTEBOOKS_DIR", None) if callable(tr) else "Notebooks dir",
+            label=tr("LBL_NOTEBOOK_DIR", None) if callable(tr) else "Notebooks dir",
             value=cast(str, st.session_state.get(SS_NOTEBOOK_DIR, "")),
             key=SS_NOTEBOOK_DIR,
         )
         st.text_input(
-            label=tr("LBL_NOTEBOOKS_URL", None) if callable(tr) else "Notebooks URL",
+            label=tr("LBL_NOTEBOOK_URL", None) if callable(tr) else "Notebooks URL",
             value=cast(str, st.session_state.get(SS_NOTEBOOK_URL, "")),
             key=SS_NOTEBOOK_URL,
         )
